@@ -1,0 +1,31 @@
+{
+  "name": "trealla",
+  "version": "0.0.1",
+  "description": "Trealla Prolog bindings for JS",
+  "main": "index.mjs",
+  "type": "module",
+  "__TODO_types": "index.d.ts",
+  "files": [
+    "index.mjs",
+    "tpl.wasm"
+  ],
+  "scripts": {
+    "__TODO_prepublish": "npm x tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guregu/trealla-js.git"
+  },
+  "keywords": [
+    "tau-prolog"
+  ],
+  "author": "guregu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/guregu/trealla-js/issues"
+  },
+  "homepage": "https://github.com/guregu/trealla-js#readme",
+  "dependencies": {
+    "@wasmer/wasi": "^1.1.2"
+  }
+}
