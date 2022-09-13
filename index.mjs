@@ -47,7 +47,7 @@ export class Prolog {
 		if (filename) {
 			this.fs.removeFile(filename);
 		}
-		const stdout = this.wasi.getStdoutString();
+		const stdout = this.wasi.getStdoutBuffer();
 		const result = parseOutput(stdout);
 		return result;
 	}
@@ -57,21 +57,24 @@ export class Prolog {
 	}
 }
 
+
 function parseOutput(stdout) {
-	const start = stdout.indexOf("\x02");
-	const end = stdout.indexOf("\x03");
+	const start = stdout.indexOf(2); // ASCII START OF TEXT
+	const end = stdout.indexOf(3); // ASCII END OF TEXT
 	if (start === -1 || end === -1) {
 		throw Error("trealla: invalid output: " + stdout);
 	}
 
-	const raw = JSON.parse(stdout.slice(end + 1));
+	const dec = new TextDecoder();
+	const raw = JSON.parse(dec.decode(stdout.slice(end + 1)));
 	const result = {
-		output: stdout.slice(start + 1, end),
+		output: dec.decode(stdout.slice(start + 1, end)),
 		...raw
 	};
 
 	return result;
 }
+
 
 const toplevel = `
 :- module(js_toplevel, [js_toplevel/0, js_ask/1]).
@@ -104,13 +107,13 @@ write_result(success, Solutions0) :-
 		string("result")-string("success"),
 		string("answers")-list(Solutions)
 	])), JSON)),
-	format("~s~n", [JSON]).
+	maplist(write, JSON), nl.
 
 write_result(failure, _) :-
 	once(phrase(json_chars(pairs([
 		string("result")-string("failure")
 	])), JSON)),
-	format("~s~n", [JSON]).
+	maplist(write, JSON), nl.
 
 write_result(error, Error0) :-
 	term_json(Error0, Error),
@@ -118,7 +121,7 @@ write_result(error, Error0) :-
 		string("result")-string("error"),
 		string("error")-Error
 	])), JSON)),
-	format("~s~n", [JSON]).
+	maplist(write, JSON), nl.
 
 query(Query, Vars, Status, Solutions) :-
 	( setup_call_cleanup(
