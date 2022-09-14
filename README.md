@@ -1,8 +1,8 @@
 # trealla-js
 
-Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla).
+Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla) via [wasmer-js](https://github.com/wasmerio/wasmer-js).
 
-Demo: https://php.energy/trealla.html
+**Demo**: https://php.energy/trealla.html
 
 WIP :-)
 
@@ -17,7 +17,11 @@ WIP :-)
 <script type="module">
 import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla';
 
-await loadFromWAPM("0.1.21");
+// load the Trealla binary from WAPM.io, make sure to use the latest version!
+// see: https://wapm.io/guregu/trealla
+await loadFromWAPM("0.1.23");
+// alternatively, host it yourself and use the load function instead of loadFromWAPM.
+
 const pl = new Prolog();
 const answers = await pl.query('between(1, 5, X), Y is X^2, format("(~w,~w)~n", [X, Y]).');
 </script>

@@ -59,22 +59,25 @@ export class Prolog {
 
 
 function parseOutput(stdout) {
+	const dec = new TextDecoder();
 	const start = stdout.indexOf(2); // ASCII START OF TEXT
-	const end = stdout.indexOf(3); // ASCII END OF TEXT
-	if (start === -1 || end === -1) {
-		throw Error("trealla: invalid output: " + stdout);
+	const end = stdout.indexOf(3);   // ASCII END OF TEXT
+	if (start === -1 || end === -1 || start > end) {
+		throw Error("trealla: unexpected output: " + dec.decode(stdout));
+	}
+	let butt = stdout.indexOf(2, end+1);
+	if (butt === -1) {
+		butt = stdout.length;
 	}
 
-	const dec = new TextDecoder();
-	const raw = JSON.parse(dec.decode(stdout.slice(end + 1)));
+	const msg = JSON.parse(dec.decode(stdout.slice(end + 1, butt)));
 	const result = {
 		output: dec.decode(stdout.slice(start + 1, end)),
-		...raw
+		...msg
 	};
 
 	return result;
 }
-
 
 const toplevel = `
 :- module(js_toplevel, [js_toplevel/0, js_ask/1]).
