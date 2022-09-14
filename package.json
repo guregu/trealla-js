@@ -1,17 +1,10 @@
 {
   "name": "trealla",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "Trealla Prolog bindings for JS",
   "main": "index.mjs",
   "type": "module",
-  "__TODO_types": "index.d.ts",
-  "files": [
-    "index.mjs",
-    "tpl.wasm"
-  ],
-  "scripts": {
-    "__TODO_prepublish": "npm x tsc"
-  },
+  "types": "index.d.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/guregu/trealla-js.git"
