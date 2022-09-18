@@ -19,6 +19,7 @@ export class Prolog {
 	wasi;
 	instance;
 	n = 0;
+	module;
 
 	constructor() {
 		this.wasi = newWASI();
@@ -30,6 +31,7 @@ export class Prolog {
 		if (!module) {
 			throw new Error("trealla: uninitialized, call load first");
 		}
+		this.module = module;
 		const imports = this.wasi.getImports(module);
 		this.instance = await WebAssembly.instantiate(module, imports);
 	}
@@ -39,7 +41,7 @@ export class Prolog {
 	async query(goal, script) {
 		const id = ++this.n;
 		if (!this.instance) {
-			await this.init();
+			await this.init(this.module);
 		}
 		let stdin = goal + "\n";
 		let filename = null;
