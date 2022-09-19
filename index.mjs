@@ -20,29 +20,43 @@ export class Prolog {
 	instance;
 	n = 0;
 	module;
+	ptr; // pointer to *prolog instance
+	_toplevel; // toplevel goal CString
 
-	constructor() {
+	/**	Create a new Prolog interpreter instance.
+	 *	The module argument is optional unless a default hasn't been set with load or loadFromWAPM  */
+	constructor(module = tpl) {
 		this.wasi = newWASI();
+		this.module = module;
 	}
 
-	/** Instantiate this interpreter, optional unless a default hasn't been set with load or loadFromWAPM.
-	    Automatically called by query if necessary. */
-	async init(module = tpl) {
-		if (!module) {
+	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
+	async init() {
+		if (!this.module) {
 			throw new Error("trealla: uninitialized, call load first");
 		}
-		this.module = module;
-		const imports = this.wasi.getImports(module);
-		this.instance = await WebAssembly.instantiate(module, imports);
+		
+		const imports = this.wasi.getImports(this.module);
+		this.instance = await WebAssembly.instantiate(this.module, imports);
+
+		// run it once it initialize the global interpreter
+		const exit = this.wasi.start(this.instance);
+		if (exit !== 0) {
+			throw new Error("trealla: could not initialize interpreter");
+		}
+		const pl_global = this.instance.exports.pl_global;
+		this.ptr = pl_global();
+
+		this._toplevel = new CString(this.instance, "js_toplevel");
 	}
 
 	/** Run a query. Optionally, provide Prolog program text to consult before the query is executed. */
-	// FIXME: currently query instantiates a fresh instance each time
 	async query(goal, script) {
-		const id = ++this.n;
 		if (!this.instance) {
 			await this.init(this.module);
 		}
+
+		const id = ++this.n;
 		let stdin = goal + "\n";
 		let filename = null;
 		if (script) {
@@ -53,19 +67,44 @@ export class Prolog {
 		}
 		this.wasi.setStdinString(stdin);
 
-		const _exit = this.wasi.start(this.instance);
-		// TODO: throw if _exit != 0?
+		const pl_eval = this.instance.exports.pl_eval;
+		pl_eval(this.ptr, this._toplevel.ptr);
 
 		if (filename) {
 			this.fs.removeFile(filename);
 		}
+
 		const stdout = this.wasi.getStdoutBuffer();
 		return parseOutput(stdout);
 	}
 
-	/** wasmer-js virtual filesystem.
-		Unique per interpreter, Prolog can read and write from it.
-		See: https://github.com/wasmerio/wasmer-js */
+	/** Consult (load) a Prolog file with the given filename.
+	 *	Use fs to manipulate the filesystem. */
+	async consult(filename) {
+		if (!this.instance) {
+			await this.init(this.module);
+		}
+
+		if (filename === "user") {
+			throw new Error("trealla: consulting from 'user' unsupported");
+		}
+
+		const pl_consult = this.instance.exports.pl_consult;
+		const str = new CString(this.instance, filename);
+		let ret = 0;
+		try {
+			ret = pl_consult(this.ptr, str.ptr);
+		} finally {
+			str.free();
+		}
+		if (ret === 0) {
+			throw new Error(`trealla: failed to consult file: ${filename}`);
+		}
+	}
+
+	/**	wasmer-js virtual filesystem.
+	 *	Unique per interpreter, Prolog can read and write from it.
+	 *	See: https://github.com/wasmerio/wasmer-js */
 	get fs() {
 		return this.wasi.fs;
 	}
@@ -90,8 +129,49 @@ function parseOutput(stdout) {
 
 function newWASI() {
 	const wasi = new WASI({
-		args: ["tpl", "--ns", "-q", "-g", "use_module(library(js_toplevel)), js_toplevel"]
+		args: ["tpl", "--ns", "-q", "-g", "halt"]
 	});
 	wasi.fs.createDir("/tmp");
 	return wasi;
+}
+
+class CString {
+	instance;
+	ptr;
+	size;
+
+	constructor(instance, text) {
+		this.instance = instance;
+		const realloc = instance.exports.canonical_abi_realloc;
+		const memset = instance.exports.memset;
+
+		const buf = new TextEncoder().encode(text);
+		this.size = buf.byteLength + 1;
+		const ptr = realloc(0, 0, 0, this.size);
+		this.ptr = ptr;
+		if (ptr === 0) {
+			throw new Error("could not allocate cstring: " + text);
+		}
+
+		try {
+			// TODO: there must be a better way than this...
+			for (let i = 0; i < buf.byteLength; i++) {
+				memset(ptr + i, buf[i], 1);
+			}
+			memset(ptr + buf.byteLength, 0, 1);
+		} catch (err) {
+			this.free();
+			throw err;
+		}
+	}
+
+	free() {
+		if (this.ptr === 0) {
+			return;
+		}
+		const free = this.instance.exports.canonical_abi_free;
+		free(this.ptr, this.size, 0);
+		this.ptr = 0;
+		this.size = 0;
+	}
 }

@@ -3,10 +3,11 @@ declare module 'trealla' {
 	function loadFromWAPM(version: string): Promise<void>;
 
 	class Prolog {
-		constructor();
+		constructor(module?: WebAssembly.Module);
 		
-		public init(module?: WebAssembly.Module): Promise<void>;
+		public init(): Promise<void>;
 		public query(goal: string, script?: string): Promise<Answer>;
+		public consult(filename: string): Promise<void>;
 
 		public readonly fs: any;
 	}
@@ -20,10 +21,14 @@ declare module 'trealla' {
 
 	type Solution = Record<string, Term>;
 
-	type Term = Compound | string | number;
+	type Term = Compound | Variable | string | number;
 
 	interface Compound {
 		functor: string;
 		args: Term[];
+	}
+
+	interface Variable {
+		var: string;
 	}
 }

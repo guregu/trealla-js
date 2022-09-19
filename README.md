@@ -7,7 +7,7 @@ Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/treal
 WIP :-)
 
 ## TODO:
-- [ ] Keep interpreter instances alive instead of using a fresh one for each query [#1](https://github.com/guregu/trealla-js/issues/1)
+- [x] ~~Keep interpreter instances alive instead of using a fresh one for each query~~ [#1](https://github.com/guregu/trealla-js/issues/1)
 
 ## Get
 - [`https://esm.sh/trealla`](https://esm.sh/)
@@ -21,7 +21,7 @@ import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla';
 
 // load the Trealla binary from WAPM.io, make sure to use the latest version!
 // see: https://wapm.io/guregu/trealla
-await loadFromWAPM("0.2.1");
+await loadFromWAPM("0.3.0");
 // alternatively, host it yourself and use the load function instead of loadFromWAPM:
 // await load(await WebAssembly.compileStreaming(fetch("https://example.com/foo/bar/tpl.wasm"));
 
@@ -46,10 +46,11 @@ function load(module: WebAssembly.Module): Promise<void>;
 function loadFromWAPM(version: string): Promise<void>;
 
 class Prolog {
-  constructor();
-  
-  public init(module?: WebAssembly.Module): Promise<void>;
+  constructor(module?: WebAssembly.Module);
+
+  public init(): Promise<void>;
   public query(goal: string, script?: string): Promise<Answer>;
+  public consult(filename: string): Promise<void>;
 
   public readonly fs: any; // wasmer-js filesystem
 }
@@ -63,10 +64,14 @@ interface Answer {
 
 type Solution = Record<string, Term>;
 
-type Term = Compound | string | number;
+type Term = Compound | Variable | string | number;
 
 interface Compound {
   functor: string;
   args: Term[];
+}
+
+interface Variable {
+  var: string;
 }
 ```
