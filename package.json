@@ -1,6 +1,6 @@
 {
   "name": "trealla",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Trealla Prolog bindings for JS",
   "main": "index.mjs",
   "type": "module",
@@ -11,7 +11,9 @@
     "url": "git+https://github.com/guregu/trealla-js.git"
   },
   "keywords": [
-    "tau-prolog"
+    "prolog",
+    "logic-programming",
+    "trealla-prolog"
   ],
   "author": "guregu",
   "license": "MIT",

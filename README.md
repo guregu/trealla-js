@@ -21,7 +21,7 @@ import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla';
 
 // load the Trealla binary from WAPM.io, make sure to use the latest version!
 // see: https://wapm.io/guregu/trealla
-await loadFromWAPM("0.3.0");
+await loadFromWAPM("0.3.1");
 // alternatively, host it yourself and use the load function instead of loadFromWAPM:
 // await load(await WebAssembly.compileStreaming(fetch("https://example.com/foo/bar/tpl.wasm"));
 
@@ -46,13 +46,18 @@ function load(module: WebAssembly.Module): Promise<void>;
 function loadFromWAPM(version: string): Promise<void>;
 
 class Prolog {
-  constructor(module?: WebAssembly.Module);
+  constructor(options?: PrologOptions);
 
   public init(): Promise<void>;
   public query(goal: string, script?: string): Promise<Answer>;
   public consult(filename: string): Promise<void>;
 
   public readonly fs: any; // wasmer-js filesystem
+}
+
+interface PrologOptions {
+  library?: string; // library files path (default: "/library")
+  module?: WebAssembly.Module; // manually specify module instead of the default (make sure wasmer-js is initialized first)
 }
 
 interface Answer {

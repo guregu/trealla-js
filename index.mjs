@@ -24,16 +24,20 @@ export class Prolog {
 	_toplevel; // toplevel goal CString
 
 	/**	Create a new Prolog interpreter instance.
-	 *	The module argument is optional unless a default hasn't been set with load or loadFromWAPM  */
-	constructor(module = tpl) {
-		this.wasi = newWASI();
+	 *	Make sure to load the Trealla module first with load or loadFromWAPM.  */
+	constructor(options = {}) {
+		let { library, module } = options;
+		if (!module) {
+			module = tpl;
+		}
+		this.wasi = newWASI(library);
 		this.module = module;
 	}
 
 	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
 	async init() {
 		if (!this.module) {
-			throw new Error("trealla: uninitialized, call load first");
+			throw new Error("trealla: uninitialized; call load first");
 		}
 		
 		const imports = this.wasi.getImports(this.module);
@@ -53,7 +57,7 @@ export class Prolog {
 	/** Run a query. Optionally, provide Prolog program text to consult before the query is executed. */
 	async query(goal, script) {
 		if (!this.instance) {
-			await this.init(this.module);
+			await this.init();
 		}
 
 		const id = ++this.n;
@@ -61,7 +65,7 @@ export class Prolog {
 		let filename = null;
 		if (script) {
 			filename = `/tmp/${id}.pl`;
-			const file = this.fs.open(filename, { read: true, write: true, create: true });
+			const file = this.fs.open(filename, { write: true, create: true });
 			file.writeString(script);
 			stdin = `consult('${filename}'),${stdin}`;
 		}
@@ -127,9 +131,14 @@ function parseOutput(stdout) {
 	return msg;
 }
 
-function newWASI() {
+function newWASI(library) {
+	const args = ["tpl", "--ns", "-q", "-g", "halt"];
+	if (library) {
+		args.push("--library", library);
+	}
+
 	const wasi = new WASI({
-		args: ["tpl", "--ns", "-q", "-g", "halt"]
+		args: args
 	});
 	wasi.fs.createDir("/tmp");
 	return wasi;

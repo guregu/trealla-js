@@ -3,13 +3,18 @@ declare module 'trealla' {
 	function loadFromWAPM(version: string): Promise<void>;
 
 	class Prolog {
-		constructor(module?: WebAssembly.Module);
+		constructor(options?: PrologOptions);
 		
 		public init(): Promise<void>;
 		public query(goal: string, script?: string): Promise<Answer>;
 		public consult(filename: string): Promise<void>;
 
 		public readonly fs: any;
+	}
+
+	interface PrologOptions {
+		library?: string;
+		module?: WebAssembly.Module;
 	}
 
 	interface Answer {
