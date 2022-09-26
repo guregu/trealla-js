@@ -152,10 +152,10 @@ class CString {
 	constructor(instance, text) {
 		this.instance = instance;
 		const realloc = instance.exports.canonical_abi_realloc;
-		const memset = instance.exports.memset;
 
 		const buf = new TextEncoder().encode(text);
 		this.size = buf.byteLength + 1;
+
 		const ptr = realloc(0, 0, 0, this.size);
 		this.ptr = ptr;
 		if (ptr === 0) {
@@ -163,11 +163,9 @@ class CString {
 		}
 
 		try {
-			// TODO: there must be a better way than this...
-			for (let i = 0; i < buf.byteLength; i++) {
-				memset(ptr + i, buf[i], 1);
-			}
-			memset(ptr + buf.byteLength, 0, 1);
+			const mem = new Uint8Array(instance.exports.memory.buffer, this.ptr, this.size);
+			mem.set(buf);
+			mem[buf.byteLength] = 0;
 		} catch (err) {
 			this.free();
 			throw err;
