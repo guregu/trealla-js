@@ -53,3 +53,14 @@ console.log(
 /*
 { result: 'success', answers: [ { Status: 'ok' } ], output: '' }
 */
+
+// testing the optional "script" parameter which is consulted before the query is run
+console.log(
+  await pl.query("🤠 howdy.", `
+    :- op(201, fy, 🤠).
+    🤠(X) :- format("yee haw ~w~n", [X]).
+  `));
+
+/*
+{ result: 'success', answers: [ {} ], output: 'yee haw howdy\n' }
+*/

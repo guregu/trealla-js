@@ -61,15 +61,17 @@ export class Prolog {
 		}
 
 		const id = ++this.n;
-		let stdin = goal + "\n";
+
+		const stdin = goal + "\n";
+		this.wasi.setStdinString(stdin);
+
 		let filename = null;
 		if (script) {
 			filename = `/tmp/${id}.pl`;
 			const file = this.fs.open(filename, { write: true, create: true });
 			file.writeString(script);
-			stdin = `consult('${filename}'),${stdin}`;
+			await this.consult(filename);
 		}
-		this.wasi.setStdinString(stdin);
 
 		const pl_eval = this.instance.exports.pl_eval;
 		pl_eval(this.ptr, this._toplevel.ptr);
