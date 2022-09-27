@@ -21,7 +21,6 @@ export class Prolog {
 	n = 0;
 	module;
 	ptr; // pointer to *prolog instance
-	_toplevel; // toplevel goal CString
 
 	/**	Create a new Prolog interpreter instance.
 	 *	Make sure to load the Trealla module first with load or loadFromWAPM.  */
@@ -50,8 +49,6 @@ export class Prolog {
 		}
 		const pl_global = this.instance.exports.pl_global;
 		this.ptr = pl_global();
-
-		this._toplevel = new CString(this.instance, "js_toplevel");
 	}
 
 	/** Run a query. Optionally, provide Prolog program text to consult before the query is executed. */
@@ -85,7 +82,10 @@ export class Prolog {
 					return;
 				}
 				yield parseOutput(stdout);
-			} while(pl_redo(this.ptr) === 1)
+			} while(this.n === id && pl_redo(this.ptr) === 1)
+			if (this.n !== id) {
+				throw new Error("trealla: iterator invalidated (concurrent queries)")
+			}
 		} finally {
 			if (filename) {
 				this.fs.removeFile(filename);

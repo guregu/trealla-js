@@ -71,6 +71,19 @@ await dumpQuery(pl.query("🤠 howdy.", `
 { result: 'success', answer: {}, output: 'yee haw howdy\n' }
 */
 
+const q1 = pl.query("between(0,9,X).");
+const q2 = pl.query("between(10,19,N).");
+await q1.next();
+await q2.next();
+try {
+  // invalid iterator
+  // need to fix this
+  await q1.next();
+} catch (err) {
+  console.log("expected error:", err);
+}
+console.log(await q2.next()); // N=11
+
 async function dumpQuery(query) {
   for await (const answer of query) {
     console.log(answer);
