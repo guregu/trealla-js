@@ -17,11 +17,12 @@
 
 <form onsubmit="return ask(), false;">
 	<textarea cols=80 rows=20 id="src">
-person(socrates).
-mortal(X) :- person(X).
+mortal(X) :- human(X).
+human(socrates).
+human(plato).
 	</textarea>
 	<br>
-	<input type="text" style="width: 74ch" value="mortal(Who)." id="query" required>
+	<input type="text" style="width: 74ch" value='mortal(Who), format("All humans are mortal. ~a is human. Hence, ~a is mortal.", [Who, Who]).' id="query" required>
 	<input type="submit" value="Query" id="query-btn" disabled>
 </form>
 
@@ -32,9 +33,9 @@ mortal(X) :- person(X).
 <button onclick="return resetProlog(),false;">Reset Interpreter</button>
 
 <script type="module">
-import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla@0.3.3';
+import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla@0.4.0';
 
-await loadFromWAPM("0.3.5");
+await loadFromWAPM("0.4.0");
 
 let pl = new Prolog();
 
@@ -46,10 +47,14 @@ window.ask = async function ask() {
 	const query = document.getElementById("query");
 	const src = document.getElementById("src");
 	const result = document.getElementById("result");
+	result.textContent = "";
 	console.time("query");
-	const msg = await pl.query(query.value, src.value);
+	let text = "";
+	for await (const msg of pl.query(query.value, src.value)) {
+		text += JSON.stringify(msg, null, "  ") + "\n";
+	}
 	console.timeEnd("query");
-	result.textContent = JSON.stringify(msg, null, "  ");
+	result.textContent = text;
 }
 
 document.getElementById("query-btn").removeAttribute("disabled");

@@ -6,7 +6,7 @@ declare module 'trealla' {
 		constructor(options?: PrologOptions);
 		
 		public init(): Promise<void>;
-		public query(goal: string, script?: string): Promise<Answer>;
+		public query(goal: string, script?: string): AsyncGenerator<Answer, void, void>;
 		public consult(filename: string): Promise<void>;
 
 		public readonly fs: any;
@@ -19,7 +19,7 @@ declare module 'trealla' {
 
 	interface Answer {
 		result: "success" | "failure" | "error";
-		answers?: Solution[];
+		answer?: Solution;
 		error?: Term;
 		output: string; // stdout text
 	}

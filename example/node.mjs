@@ -25,42 +25,54 @@ pl.fs.open("/lib/test.pl", { write: true, create: true }).writeString(`
 library(ok).
 `);
 
+// mortal(Who), format("All humans are mortal. ~s is human. Hence, %s is mortal.").
+
 // consult the file we just created. "greeting" or "/greeting.pl" both work
 await pl.consult("greeting");
 
 // assert some dynamic facts
-await pl.query("assertz(lang(prolog)), greeting:assertz(hello('Welt')).");
+await pl.query("assertz(lang(prolog)), greeting:assertz(hello('Welt')).").next();
 
 // run a query on the file we loaded and facts we asserted
-console.log(
-	await pl.query(`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`));
+await dumpQuery(pl.query(`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`));
 
+await dumpQuery(pl.query(`format("blah ~s").`));
 /*
 {
   result: 'success',
-  answers: [
-    { Planet: 'world', Lang: 'prolog' },
-    { Planet: '世界', Lang: 'prolog' },
-    { Planet: 'Welt', Lang: 'prolog' }
-  ],
-  output: 'hello world from prolog!\nhello 世界 from prolog!\nhello Welt from prolog!\n'
+  answer: { Planet: 'world', Lang: 'prolog' },
+  output: 'hello world from prolog!\n'
+}
+{
+  result: 'success',
+  answer: { Planet: '世界', Lang: 'prolog' },
+  output: 'hello 世界 from prolog!\n'
+}
+{
+  result: 'success',
+  answer: { Planet: 'Welt', Lang: 'prolog' },
+  output: 'hello Welt from prolog!\n'
 }
 */
 
-console.log(
-  await pl.query("use_module(library(test)), library(Status)."));
+await dumpQuery(pl.query("use_module(library(test)), library(Status)."));
 
 /*
-{ result: 'success', answers: [ { Status: 'ok' } ], output: '' }
+{ result: 'success', answer: { Status: 'ok' }, output: '' }
 */
 
 // testing the optional "script" parameter which is consulted before the query is run
-console.log(
-  await pl.query("🤠 howdy.", `
+await dumpQuery(pl.query("🤠 howdy.", `
     :- op(201, fy, 🤠).
     🤠(X) :- format("yee haw ~w~n", [X]).
   `));
 
 /*
-{ result: 'success', answers: [ {} ], output: 'yee haw howdy\n' }
+{ result: 'success', answer: {}, output: 'yee haw howdy\n' }
 */
+
+async function dumpQuery(query) {
+  for await (const answer of query) {
+    console.log(answer);
+  }
+}

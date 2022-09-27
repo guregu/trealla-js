@@ -55,7 +55,7 @@ export class Prolog {
 	}
 
 	/** Run a query. Optionally, provide Prolog program text to consult before the query is executed. */
-	async query(goal, script) {
+	async* query(goal, script) {
 		if (!this.instance) {
 			await this.init();
 		}
@@ -73,15 +73,25 @@ export class Prolog {
 			await this.consult(filename);
 		}
 
-		const pl_eval = this.instance.exports.pl_eval;
-		pl_eval(this.ptr, this._toplevel.ptr);
-
-		if (filename) {
-			this.fs.removeFile(filename);
+		const goalstr = new CString(this.instance, escapeQuery(goal));
+		const pl_query = this.instance.exports.pl_query;
+		const pl_redo = this.instance.exports.pl_redo;
+		try {
+			pl_query(this.ptr, goalstr.ptr);
+			do {
+				const stdout = this.wasi.getStdoutBuffer();
+				if (stdout.byteLength == 0) {
+					// "; false."
+					return;
+				}
+				yield parseOutput(stdout);
+			} while(pl_redo(this.ptr) === 1)
+		} finally {
+			if (filename) {
+				this.fs.removeFile(filename);
+			}
+			goalstr.free();
 		}
-
-		const stdout = this.wasi.getStdoutBuffer();
-		return parseOutput(stdout);
 	}
 
 	/** Consult (load) a Prolog file with the given filename.
@@ -118,17 +128,15 @@ export class Prolog {
 
 function parseOutput(stdout) {
 	const dec = new TextDecoder();
-	const start = stdout.indexOf(2); // ASCII START OF TEXT
-	const end = stdout.indexOf(3);   // ASCII END OF TEXT
-	if (start === -1 || end === -1 || start > end) {
-		throw new Error("trealla: unexpected output: " + dec.decode(stdout));
+	let start = stdout.indexOf(2); // ASCII START OF TEXT
+	const end = stdout.indexOf(3); // ASCII END OF TEXT
+	if (start > end) {
+		start = -1;
 	}
-	let butt = stdout.indexOf(2, end+1);
-	if (butt === -1) {
-		butt = stdout.length;
-	}
-
-	const msg = JSON.parse(dec.decode(stdout.slice(end + 1, butt)));
+	const nl = stdout.indexOf(10, end+1); // LINE FEED
+	const butt = nl >= 0 ? nl : stdout.length;
+	const json = dec.decode(stdout.slice(end + 1, butt));
+	const msg = JSON.parse(json);
 	msg.output = dec.decode(stdout.slice(start + 1, end));
 	return msg;
 }
@@ -183,4 +191,10 @@ class CString {
 		this.ptr = 0;
 		this.size = 0;
 	}
+}
+
+function escapeQuery(query) {
+	query = query.replaceAll("\\", "\\\\");
+	query = query.replaceAll(`"`, `\\"`);
+	return `js_ask("${query}")`;
 }
