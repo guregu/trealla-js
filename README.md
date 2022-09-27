@@ -22,7 +22,7 @@ import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla';
 
 // load the Trealla binary from WAPM.io, make sure to use the latest version!
 // see: https://wapm.io/guregu/trealla
-await loadFromWAPM("0.4.0");
+await loadFromWAPM("0.4.1");
 // alternatively, host it yourself and use the load function instead of loadFromWAPM:
 // await load(await WebAssembly.compileStreaming(fetch("https://example.com/foo/bar/tpl.wasm"));
 
