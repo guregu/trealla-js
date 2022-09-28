@@ -33,7 +33,7 @@ human(plato).
 <button onclick="return resetProlog(),false;">Reset Interpreter</button>
 
 <script type="module">
-import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla@0.6.0';
+import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla@0.6.1';
 
 await loadFromWAPM("0.5.1");
 
@@ -50,7 +50,7 @@ window.ask = async function ask() {
 	result.textContent = "";
 	console.time("query");
 	let text = "";
-	for await (const msg of pl.query(query.value, src.value)) {
+	for await (const msg of pl.query(query.value, {script: src.value})) {
 		text += JSON.stringify(msg, null, "  ") + "\n";
 	}
 	console.timeEnd("query");

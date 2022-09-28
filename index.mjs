@@ -151,7 +151,12 @@ export class Prolog {
 		if (!this.instance) {
 			await this.init(this.module);
 		}
+		const filename = await this.writeScratchFile(code);
+		await this.consult(filename);
+		this.fs.removeFile(filename);
+	}
 
+	async writeScratchFile(code) {
 		const id = ++this.scratch;
 		const filename = `/tmp/scratch${id}.pl`;
 		const file = this.fs.open(filename, { write: true, create: true });
@@ -163,9 +168,7 @@ export class Prolog {
 		} else {
 			throw new Error("trealla: invalid parameter for consulting: " + code);
 		}
-
-		await this.consult(filename);
-		this.fs.removeFile(filename);
+		return filename;
 	}
 
 	/**	wasmer-js virtual filesystem.

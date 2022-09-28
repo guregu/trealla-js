@@ -58,6 +58,17 @@ await dumpQuery(pl.query("use_module(library(test)), library(Status)."));
 { result: 'success', answer: { Status: 'ok' }, output: '' }
 */
 
+// testing the optional "script" parameter which is consulted before the query is run
+await dumpQuery(pl.query("🤠 howdy.", {
+  script: `
+    :- op(201, fy, 🤠).
+    🤠(X) :- format("yee haw ~w~n", [X]).`
+}));
+
+/*
+{ result: 'success', answer: {}, output: 'yee haw howdy\n' }
+*/
+
 // multiple async queries:
 const q1 = pl.query("between(0,9,X).");
 const q2 = pl.query("between(10,19,N).");
@@ -70,5 +81,8 @@ await q1.return(); await q2.return(); // kill queries
 async function dumpQuery(query) {
   for await (const answer of query) {
     console.log(answer);
+    if (answer.error) {
+      console.log(JSON.stringify(answer));
+    }
   }
 }
