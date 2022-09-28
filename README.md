@@ -1,14 +1,10 @@
 # trealla-js
 
-Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla) via [wasmer-js](https://github.com/wasmerio/wasmer-js).
+Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla) via [wasmer-js](https://github.com/wasmerio/wasmer-js) and WASI.
 
 **Demo**: https://php.energy/trealla.html
 
 **Status**: beta!
-
-## TODO:
-- [x] ~~Keep interpreter instances alive instead of using a fresh one for each query~~ [#1](https://github.com/guregu/trealla-js/issues/1)
-- [x] ~~Make query responses a generator instead of findalling them~~ [#3](https://github.com/guregu/trealla-js/issues/3)
 
 ## Get
 - [`https://esm.sh/trealla`](https://esm.sh/)
@@ -46,7 +42,7 @@ for await (const answer of query) {
 {
   "output": "(2,4)\n",
   "result": "success",
-  "answers": {"X": 2, "Y": 4}
+  "answer": {"X": 2, "Y": 4}
 }
 // ...
 ```
@@ -130,3 +126,10 @@ declare module 'trealla' {
   }
 }
 ```
+
+## See Also
+
+- [trealla-prolog/go](https://github.com/trealla-prolog/go) is Trealla for Go.
+- [Tau Prolog](http://www.tau-prolog.org/) is a pure Javascript Prolog.
+- [SWI Prolog](https://swi-prolog.discourse.group/t/swi-prolog-in-the-browser-using-wasm/5650) has a WASM implementation using Emscripten.
+- [Ciao](https://github.com/ciao-lang/ciaowasm) has a WASM implementation using Emscripten.

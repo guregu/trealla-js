@@ -43,7 +43,7 @@ export class Prolog {
 		if (!this.module) {
 			throw new Error("trealla: uninitialized; call load first");
 		}
-		
+
 		const imports = this.wasi.getImports(this.module);
 		this.instance = await WebAssembly.instantiate(this.module, imports);
 
@@ -90,12 +90,12 @@ export class Prolog {
 			subquery = indirect(this.instance, subq_ptr);
 			free(subq_ptr, subq_size, 1);
 			do {
-				if (!finalizing) {
+				if (alive && !finalizing) {
 					this.finalizers.register(token, subquery);
 					finalizing = true;
 				}
 				const stdout = this.wasi.getStdoutBuffer();
-				if (stdout.byteLength == 0) {
+				if (stdout.byteLength === 0) {
 					// "; false."
 					return;
 				}
@@ -105,7 +105,7 @@ export class Prolog {
 			if (finalizing) {
 				this.finalizers.unregister(token);
 			}
-			if (subquery !== 0 && alive) {
+			if (alive && subquery !== 0) {
 				pl_done(subquery);
 			}
 		}
@@ -168,6 +168,7 @@ export class Prolog {
 		} else {
 			throw new Error("trealla: invalid parameter for consulting: " + code);
 		}
+
 		return filename;
 	}
 
