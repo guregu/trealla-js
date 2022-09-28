@@ -1,10 +1,16 @@
-import { init, WASI } from '@wasmer/wasi';
+import { init as initWasmer, WASI } from '@wasmer/wasi';
 
-let tpl = null;
+let tpl = null; // default Trealla module
+
+let initRuntime = false;
+async function initInternal() {
+	await initWasmer();
+	initRuntime = true;
+}
 
 /** Load the given Trealla binary and set it as the default module. */
 export async function load(module) {
-	await init();
+	if (!initRuntime) await initInternal();
 	tpl = module;
 }
 
@@ -40,9 +46,8 @@ export class Prolog {
 
 	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
 	async init() {
-		if (!this.module) {
-			throw new Error("trealla: uninitialized; call load first");
-		}
+		if (!this.module) throw new Error("trealla: uninitialized; call load first");
+		if (!initRuntime) await initInternal();
 
 		const imports = this.wasi.getImports(this.module);
 		this.instance = await WebAssembly.instantiate(this.module, imports);
@@ -59,16 +64,14 @@ export class Prolog {
 	/** Run a query. This is an asynchronous generator function.
 	 *  Call the return() method of the generator to kill it early. */
 	async* query(goal, options = {}) {
-		if (!this.instance) {
-			await this.init();
-		}
-		const { script } = options;
+		if (!this.instance) await this.init()
+		const { program } = options;
 
 		const _id = ++this.n;
 		const token = {};
 
-		if (script) {
-			await this.consultText(script);
+		if (program) {
+			await this.consultText(program);
 		}
 
 		const realloc = this.instance.exports.canonical_abi_realloc;
@@ -124,9 +127,7 @@ export class Prolog {
 	/** Consult (load) a Prolog file with the given filename.
 	 *	Use fs to manipulate the filesystem. */
 	async consult(filename) {
-		if (!this.instance) {
-			await this.init();
-		}
+		if (!this.instance) await this.init()
 
 		if (filename === "user") {
 			throw new Error("trealla: consulting from 'user' unsupported");

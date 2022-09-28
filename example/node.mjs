@@ -58,9 +58,9 @@ await dumpQuery(pl.query("use_module(library(test)), library(Status)."));
 { result: 'success', answer: { Status: 'ok' }, output: '' }
 */
 
-// testing the optional "script" parameter which is consulted before the query is run
+// testing the optional "program" parameter which is consulted before the query is run
 await dumpQuery(pl.query("🤠 howdy.", {
-  script: `
+  program: `
     :- op(201, fy, 🤠).
     🤠(X) :- format("yee haw ~w~n", [X]).`
 }));

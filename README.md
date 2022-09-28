@@ -97,12 +97,16 @@ declare module 'trealla' {
   }
 
   interface PrologOptions {
-    library?: string;            // library files path (default: "/library")
-    module?: WebAssembly.Module; // manually specify module instead of the default (make sure wasmer-js is initialized first)
+    // library files path (default: "/library")
+    // used by use_module(library(...))
+    library?: string;
+    // manually specify module instead of the default
+    module?: WebAssembly.Module;
   }
 
   interface QueryOptions {
-    script?: string;
+    // Prolog program text to evaluate before the query
+    program?: string | Uint8Array;
   }
 
   interface Answer {
@@ -114,7 +118,7 @@ declare module 'trealla' {
 
   type Solution = Record<string, Term>;
 
-  type Term = Compound | Variable | string | number | Term[];
+  type Term = Compound | Variable | List | string | number;
 
   interface Compound {
     functor: string;
@@ -124,6 +128,8 @@ declare module 'trealla' {
   interface Variable {
     var: string;
   }
+
+  type List = Term[];
 }
 ```
 
