@@ -13,10 +13,9 @@ const pl = new Prolog({
 
 // create a file in the virtual filesystem
 pl.fs.open("/greeting.pl", { write: true, create: true }).writeString(`
-:- module(greeting, [hello/1]).
-:- dynamic(hello/1).
-hello(world).
-hello(世界).
+  :- module(greeting, [hello/1]).
+  hello(world).
+  hello(世界).
 `);
 
 // custom library we can load from the use_module(library(...)) directive
@@ -71,18 +70,14 @@ await dumpQuery(pl.query("🤠 howdy.", `
 { result: 'success', answer: {}, output: 'yee haw howdy\n' }
 */
 
+// multiple async queries:
 const q1 = pl.query("between(0,9,X).");
 const q2 = pl.query("between(10,19,N).");
 await q1.next();
 await q2.next();
-try {
-  // invalid iterator
-  // need to fix this
-  await q1.next();
-} catch (err) {
-  console.log("expected error:", err);
-}
+console.log(await q1.next()); // X=1
 console.log(await q2.next()); // N=11
+await q1.return(); await q2.return(); // kill queries
 
 async function dumpQuery(query) {
   for await (const answer of query) {

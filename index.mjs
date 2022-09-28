@@ -70,11 +70,20 @@ export class Prolog {
 			await this.consult(filename);
 		}
 
-		const goalstr = new CString(this.instance, escapeQuery(goal));
+		const realloc = this.instance.exports.canonical_abi_realloc;
+		const free = this.instance.exports.canonical_abi_free;
 		const pl_query = this.instance.exports.pl_query;
 		const pl_redo = this.instance.exports.pl_redo;
+		const pl_done = this.instance.exports.pl_redo;
+
+		const goalstr = new CString(this.instance, escapeQuery(goal));
+		const subq_size = 4; // sizeof(*void)
+		const subq_ptr = realloc(0, 0, 0, subq_size); // pl_sub_query *subq;
+		let subquery = 0;
+		let alive = false;
 		try {
-			pl_query(this.ptr, goalstr.ptr);
+			pl_query(this.ptr, goalstr.ptr, subq_ptr);
+			subquery = indirect(this.instance, subq_ptr);
 			do {
 				const stdout = this.wasi.getStdoutBuffer();
 				if (stdout.byteLength == 0) {
@@ -82,15 +91,16 @@ export class Prolog {
 					return;
 				}
 				yield parseOutput(stdout);
-			} while(this.n === id && pl_redo(this.ptr) === 1)
-			if (this.n !== id) {
-				throw new Error("trealla: iterator invalidated (concurrent queries)")
-			}
+			} while(alive = pl_redo(subquery) === 1)
 		} finally {
+			if (alive && subquery !== 0) {
+				pl_done(subquery);
+			}
 			if (filename) {
 				this.fs.removeFile(filename);
 			}
 			goalstr.free();
+			free(subq_ptr, subq_size, 1);
 		}
 	}
 
@@ -187,10 +197,15 @@ class CString {
 			return;
 		}
 		const free = this.instance.exports.canonical_abi_free;
-		free(this.ptr, this.size, 0);
+		free(this.ptr, this.size, 1);
 		this.ptr = 0;
 		this.size = 0;
 	}
+}
+
+function indirect(instance, addr) {
+	if (addr === 0) return 0;
+	return (new Int32Array(instance.exports.memory.buffer))[addr / 4];
 }
 
 function escapeQuery(query) {

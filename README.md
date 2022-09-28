@@ -4,7 +4,7 @@ Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/treal
 
 **Demo**: https://php.energy/trealla.html
 
-WIP :-)
+**Status**: almost beta!
 
 ## TODO:
 - [x] ~~Keep interpreter instances alive instead of using a fresh one for each query~~ [#1](https://github.com/guregu/trealla-js/issues/1)
@@ -22,7 +22,7 @@ import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla';
 
 // load the Trealla binary from WAPM.io, make sure to use the latest version!
 // see: https://wapm.io/guregu/trealla
-await loadFromWAPM("0.4.1");
+await loadFromWAPM("0.5.0");
 // alternatively, host it yourself and use the load function instead of loadFromWAPM:
 // await load(await WebAssembly.compileStreaming(fetch("https://example.com/foo/bar/tpl.wasm"));
 
@@ -51,8 +51,37 @@ for await (const answer of query) {
 // ...
 ```
 
+### Caveats
+
+Multiple queries can be run concurrently. If you'd like to kill a query early, use the `return()` method on the generator returned from `query()`. Otherwise, memory may leak.
+This is not necessary if you iterate through until it is finished.
+
+### Virtual Filesystem
+
+Each Prolog interpreter instance has its own virtual filesystem you can read and write to.
+For details, check out the [wasmer-js docs](https://github.com/wasmerio/wasmer-js#typescript-api).
+
+```js
+const pl = new Prolog();
+// create a file in the virtual filesystem
+pl.fs.open("/greeting.pl", { write: true, create: true }).writeString(`
+  :- module(greeting, [hello/1]).
+  hello(world).
+  hello(世界).
+`);
+
+// consult file
+await pl.consult("/greeting.pl");
+
+// use the file we added
+const query = pl.query("use_module(greeting), hello(X)");
+for await (const answer of query) {
+  console.log(answer); // X = world, X = 世界
+}
+```
+
 ## API
-Currently unstable.
+Approaching stability.
 
 ```typescript
 function load(module: WebAssembly.Module): Promise<void>;
