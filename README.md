@@ -4,7 +4,7 @@ Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/treal
 
 **Demo**: https://php.energy/trealla.html
 
-**Status**: almost beta!
+**Status**: beta!
 
 ## TODO:
 - [x] ~~Keep interpreter instances alive instead of using a fresh one for each query~~ [#1](https://github.com/guregu/trealla-js/issues/1)
@@ -22,7 +22,7 @@ import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla';
 
 // load the Trealla binary from WAPM.io, make sure to use the latest version!
 // see: https://wapm.io/guregu/trealla
-await loadFromWAPM("0.5.0");
+await loadFromWAPM("0.5.1");
 // alternatively, host it yourself and use the load function instead of loadFromWAPM:
 // await load(await WebAssembly.compileStreaming(fetch("https://example.com/foo/bar/tpl.wasm"));
 
@@ -53,7 +53,7 @@ for await (const answer of query) {
 
 ### Caveats
 
-Multiple queries can be run concurrently. If you'd like to kill a query early, use the `return()` method on the generator returned from `query()`. Otherwise, memory may leak.
+Multiple queries can be run concurrently. If you'd like to kill a query early, use the `return()` method on the generator returned from `query()`.
 This is not necessary if you iterate through until it is finished.
 
 ### Virtual Filesystem
@@ -84,41 +84,49 @@ for await (const answer of query) {
 Approaching stability.
 
 ```typescript
-function load(module: WebAssembly.Module): Promise<void>;
-function loadFromWAPM(version: string): Promise<void>;
+declare module 'trealla' {
+    function load(module: WebAssembly.Module): Promise<void>;
+    function loadFromWAPM(version: string): Promise<void>;
 
-class Prolog {
-  constructor(options?: PrologOptions);
+    class Prolog {
+        constructor(options?: PrologOptions);
 
-  public init(): Promise<void>;
-  public query(goal: string, script?: string): AsyncGenerator<Answer, void, void>;
-  public consult(filename: string): Promise<void>;
+        public query(goal: string, options?: QueryOptions): AsyncGenerator<Answer, void, void>;
+        public queryOnce(goal: string, options?: QueryOptions): Promise<Answer>;
 
-  public readonly fs: any; // wasmer-js filesystem
-}
+        public consult(filename: string): Promise<void>;
+        public consultText(text: string | Uint8Array): Promise<void>;
+        
+        public readonly fs: any; // wasmer-js filesystem
+    }
 
-interface PrologOptions {
-  library?: string; // library files path (default: "/library")
-  module?: WebAssembly.Module; // manually specify module instead of the default (make sure wasmer-js is initialized first)
-}
+    interface PrologOptions {
+        library?: string;            // library files path (default: "/library")
+        module?: WebAssembly.Module; // manually specify module instead of the default (make sure wasmer-js is initialized first)
+    }
 
-interface Answer {
-  result: "success" | "failure" | "error";
-  answer?: Solution;
-  error?: Term;
-  output: string; // stdout text
-}
+    interface QueryOptions {
+        script?: string;
+    }
 
-type Solution = Record<string, Term>;
+    interface Answer {
+        result: "success" | "failure" | "error";
+        answer?: Solution;
+        error?: Term;
+        output: string; // stdout text
+    }
 
-type Term = Compound | Variable | string | number;
+    type Solution = Record<string, Term>;
 
-interface Compound {
-  functor: string;
-  args: Term[];
-}
+    type Term = Compound | Variable | string | number | Term[];
 
-interface Variable {
-  var: string;
+    interface Compound {
+        functor: string;
+        args: Term[];
+    }
+
+    interface Variable {
+        var: string;
+    }
 }
 ```

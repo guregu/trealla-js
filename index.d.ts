@@ -4,17 +4,23 @@ declare module 'trealla' {
 
 	class Prolog {
 		constructor(options?: PrologOptions);
-		
-		public init(): Promise<void>;
-		public query(goal: string, script?: string): AsyncGenerator<Answer, void, void>;
-		public consult(filename: string): Promise<void>;
 
-		public readonly fs: any;
+		public query(goal: string, options?: QueryOptions): AsyncGenerator<Answer, void, void>;
+		public queryOnce(goal: string, options?: QueryOptions): Promise<Answer>;
+
+		public consult(filename: string): Promise<void>;
+		public consultText(text: string | Uint8Array): Promise<void>;
+		
+		public readonly fs: any; // wasmer-js filesystem
 	}
 
 	interface PrologOptions {
-		library?: string;
-		module?: WebAssembly.Module;
+		library?: string;            // library files path (default: "/library")
+		module?: WebAssembly.Module; // manually specify module instead of the default (make sure wasmer-js is initialized first)
+	}
+
+	interface QueryOptions {
+		script?: string;
 	}
 
 	interface Answer {
@@ -26,7 +32,7 @@ declare module 'trealla' {
 
 	type Solution = Record<string, Term>;
 
-	type Term = Compound | Variable | string | number;
+	type Term = Compound | Variable | string | number | Term[];
 
 	interface Compound {
 		functor: string;

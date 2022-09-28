@@ -20,9 +20,7 @@ pl.fs.open("/greeting.pl", { write: true, create: true }).writeString(`
 
 // custom library we can load from the use_module(library(...)) directive
 pl.fs.createDir("/lib");
-pl.fs.open("/lib/test.pl", { write: true, create: true }).writeString(`
-library(ok).
-`);
+pl.fs.open("/lib/test.pl", { write: true, create: true }).writeString(`library(ok).`);
 
 // mortal(Who), format("All humans are mortal. ~s is human. Hence, %s is mortal.").
 
@@ -30,12 +28,12 @@ library(ok).
 await pl.consult("greeting");
 
 // assert some dynamic facts
-await pl.query("assertz(lang(prolog)), greeting:assertz(hello('Welt')).").next();
+await pl.queryOnce("assertz(lang(prolog)), greeting:assertz(hello('Welt')).");
 
 // run a query on the file we loaded and facts we asserted
-await dumpQuery(pl.query(`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`));
+await dumpQuery(
+  pl.query(`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`));
 
-await dumpQuery(pl.query(`format("blah ~s").`));
 /*
 {
   result: 'success',
@@ -58,16 +56,6 @@ await dumpQuery(pl.query("use_module(library(test)), library(Status)."));
 
 /*
 { result: 'success', answer: { Status: 'ok' }, output: '' }
-*/
-
-// testing the optional "script" parameter which is consulted before the query is run
-await dumpQuery(pl.query("🤠 howdy.", `
-    :- op(201, fy, 🤠).
-    🤠(X) :- format("yee haw ~w~n", [X]).
-  `));
-
-/*
-{ result: 'success', answer: {}, output: 'yee haw howdy\n' }
 */
 
 // multiple async queries:

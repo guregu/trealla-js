@@ -18,9 +18,14 @@ export async function loadFromWAPM(version) {
 export class Prolog {
 	wasi;
 	instance;
-	n = 0;
 	module;
 	ptr; // pointer to *prolog instance
+	n = 0;
+	scratch = 0;
+
+	finalizers = new FinalizationRegistry((subquery) => {
+		this.instance.exports.pl_done(subquery);
+	})
 
 	/**	Create a new Prolog interpreter instance.
 	 *	Make sure to load the Trealla module first with load or loadFromWAPM.  */
@@ -51,40 +56,44 @@ export class Prolog {
 		this.ptr = pl_global();
 	}
 
-	/** Run a query. Optionally, provide Prolog program text to consult before the query is executed. */
-	async* query(goal, script) {
+	/** Run a query. This is an asynchronous generator function.
+	 *  Call the return() method of the generator to kill it early. */
+	async* query(goal, options = {}) {
 		if (!this.instance) {
 			await this.init();
 		}
+		const { script } = options;
 
-		const id = ++this.n;
+		const _id = ++this.n;
+		const token = {};
 
-		const stdin = goal + "\n";
-		this.wasi.setStdinString(stdin);
-
-		let filename = null;
 		if (script) {
-			filename = `/tmp/${id}.pl`;
-			const file = this.fs.open(filename, { write: true, create: true });
-			file.writeString(script);
-			await this.consult(filename);
+			await this.consultText(script);
 		}
 
 		const realloc = this.instance.exports.canonical_abi_realloc;
 		const free = this.instance.exports.canonical_abi_free;
 		const pl_query = this.instance.exports.pl_query;
 		const pl_redo = this.instance.exports.pl_redo;
-		const pl_done = this.instance.exports.pl_redo;
+		const pl_done = this.instance.exports.pl_done;
 
 		const goalstr = new CString(this.instance, escapeQuery(goal));
-		const subq_size = 4; // sizeof(*void)
-		const subq_ptr = realloc(0, 0, 0, subq_size); // pl_sub_query *subq;
-		let subquery = 0;
+		const subq_size = 4; // sizeof(void*)
+		const subq_ptr = realloc(0, 0, 1, subq_size); // pl_sub_query**
 		let alive = false;
+		let subquery = 0; // pl_sub_query*
+		let finalizing = false;
+
 		try {
 			pl_query(this.ptr, goalstr.ptr, subq_ptr);
+			goalstr.free();
 			subquery = indirect(this.instance, subq_ptr);
+			free(subq_ptr, subq_size, 1);
 			do {
+				if (!finalizing) {
+					this.finalizers.register(token, subquery);
+					finalizing = true;
+				}
 				const stdout = this.wasi.getStdoutBuffer();
 				if (stdout.byteLength == 0) {
 					// "; false."
@@ -93,14 +102,22 @@ export class Prolog {
 				yield parseOutput(stdout);
 			} while(alive = pl_redo(subquery) === 1)
 		} finally {
-			if (alive && subquery !== 0) {
+			if (finalizing) {
+				this.finalizers.unregister(token);
+			}
+			if (subquery !== 0 && alive) {
 				pl_done(subquery);
 			}
-			if (filename) {
-				this.fs.removeFile(filename);
-			}
-			goalstr.free();
-			free(subq_ptr, subq_size, 1);
+		}
+	}
+
+	/** Runs a query and returns a single solution, ignoring others. */
+	async queryOnce(goal, options) {
+		const q = this.query(goal, options);
+		try {
+			return await q.next();
+		} finally {
+			q.return();
 		}
 	}
 
@@ -108,7 +125,7 @@ export class Prolog {
 	 *	Use fs to manipulate the filesystem. */
 	async consult(filename) {
 		if (!this.instance) {
-			await this.init(this.module);
+			await this.init();
 		}
 
 		if (filename === "user") {
@@ -126,6 +143,29 @@ export class Prolog {
 		if (ret === 0) {
 			throw new Error(`trealla: failed to consult file: ${filename}`);
 		}
+	}
+
+	/** Consult (load) Prolog text.
+	 *  Takes a string or Uint8Array. */
+	async consultText(code) {
+		if (!this.instance) {
+			await this.init(this.module);
+		}
+
+		const id = ++this.scratch;
+		const filename = `/tmp/scratch${id}.pl`;
+		const file = this.fs.open(filename, { write: true, create: true });
+
+		if (typeof code === "string") {
+			file.writeString(code);
+		} else if (code instanceof Uint8Array) {
+			file.write(code)
+		} else {
+			throw new Error("trealla: invalid parameter for consulting: " + code);
+		}
+
+		await this.consult(filename);
+		this.fs.removeFile(filename);
 	}
 
 	/**	wasmer-js virtual filesystem.
@@ -161,6 +201,7 @@ function newWASI(library) {
 		args: args
 	});
 	wasi.fs.createDir("/tmp");
+
 	return wasi;
 }
 
@@ -176,7 +217,7 @@ class CString {
 		const buf = new TextEncoder().encode(text);
 		this.size = buf.byteLength + 1;
 
-		const ptr = realloc(0, 0, 0, this.size);
+		const ptr = realloc(0, 0, 1, this.size);
 		this.ptr = ptr;
 		if (ptr === 0) {
 			throw new Error("could not allocate cstring: " + text);
