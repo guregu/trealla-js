@@ -1,6 +1,10 @@
 # trealla-js
 
-Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla) via [wasmer-js](https://github.com/wasmerio/wasmer-js) and WASI.
+Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla) via [wasmer-js](https://github.com/wasmerio/wasmer-js).
+
+Trealla is a quick and lean ISO Prolog interpreter.
+
+Trealla is built targeting [WASI](https://wasi.dev/) and should be useful for both browsers and serverless runtimes.
 
 **Demo**: https://php.energy/trealla.html
 
@@ -18,7 +22,7 @@ import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla';
 
 // load the Trealla binary from WAPM.io, make sure to use the latest version!
 // see: https://wapm.io/guregu/trealla
-await loadFromWAPM("0.5.1");
+await loadFromWAPM("0.6.0");
 // alternatively, host it yourself and use the load function instead of loadFromWAPM:
 // await load(await WebAssembly.compileStreaming(fetch("https://example.com/foo/bar/tpl.wasm"));
 
@@ -107,6 +111,12 @@ declare module 'trealla' {
   interface QueryOptions {
     // Prolog program text to evaluate before the query
     program?: string | Uint8Array;
+    encode?: {
+      // Encoding for Prolog atoms. Default is "object".
+      atoms?: "string" | "object";
+      // Encoding for Prolog strings. Default is "string".
+      strings?: "string" | "list";
+    }
   }
 
   interface Answer {
@@ -118,7 +128,20 @@ declare module 'trealla' {
 
   type Solution = Record<string, Term>;
 
-  type Term = Compound | Variable | List | string | number;
+  /*
+    Default encoding (in order of priority):
+    string(X) 	→ string
+    is_list(X)	→ List
+    atom(X) 	  → Atom
+    compound(X) → Compound
+    number(X) 	→ number
+    var(X) 		  → Variable
+  */
+  type Term = Atom | Compound | Variable | List | string | number;
+
+  interface Atom {
+    functor: string;
+  }
 
   interface Compound {
     functor: string;
@@ -126,12 +149,18 @@ declare module 'trealla' {
   }
 
   interface Variable {
-    var: string;
+    var: string;   // variable name
+    attr?: Term[]; // residual goals
   }
 
   type List = Term[];
 }
 ```
+
+## Implementation Details
+
+Currently uses the WASM build from [guregu/trealla](https://github.com/guregu/trealla).
+Output goes through the [`js_toplevel`](https://github.com/guregu/trealla/blob/main/library/js_toplevel.pl) module.
 
 ## See Also
 

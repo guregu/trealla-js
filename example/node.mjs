@@ -32,7 +32,7 @@ await pl.queryOnce("assertz(lang(prolog)), greeting:assertz(hello('Welt')).");
 
 // run a query on the file we loaded and facts we asserted
 await dumpQuery(
-  pl.query(`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`));
+  pl.query(`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`, {encode: {atoms: "string"}}));
 
 /*
 {

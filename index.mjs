@@ -65,7 +65,7 @@ export class Prolog {
 	 *  Call the return() method of the generator to kill it early. */
 	async* query(goal, options = {}) {
 		if (!this.instance) await this.init()
-		const { program } = options;
+		const { program, encode } = options;
 
 		const _id = ++this.n;
 		const token = {};
@@ -102,7 +102,7 @@ export class Prolog {
 					// "; false."
 					return;
 				}
-				yield parseOutput(stdout);
+				yield parseOutput(stdout, encode);
 			} while(alive = pl_redo(subquery) === 1)
 		} finally {
 			if (finalizing) {
@@ -181,7 +181,7 @@ export class Prolog {
 	}
 }
 
-function parseOutput(stdout) {
+function parseOutput(stdout, opts) {
 	const dec = new TextDecoder();
 	let start = stdout.indexOf(2); // ASCII START OF TEXT
 	const end = stdout.indexOf(3); // ASCII END OF TEXT
@@ -191,9 +191,35 @@ function parseOutput(stdout) {
 	const nl = stdout.indexOf(10, end+1); // LINE FEED
 	const butt = nl >= 0 ? nl : stdout.length;
 	const json = dec.decode(stdout.slice(end + 1, butt));
-	const msg = JSON.parse(json);
+	const msg = JSON.parse(json, reviver(opts));
 	msg.output = dec.decode(stdout.slice(start + 1, end));
 	return msg;
+}
+
+function reviver(opts) {
+	if (!opts) return undefined;
+	const { atoms, strings } = opts;
+	return function(k, v) {
+		// atoms
+		if (typeof v === "object" && typeof v.functor === "string" && (!v.args || v.args.length === 0)) {
+			switch (atoms) {
+			case "string":
+				return v.functor;
+			case "object":
+				return v;
+			}
+		}
+		// strings
+		if (typeof v === "string" && k !== "result" && k !== "output") {
+			switch (strings) {
+			case "list":
+				return v.split("");
+			case "string":
+				return v;
+			}
+		}
+		return v;
+	}
 }
 
 function newWASI(library) {

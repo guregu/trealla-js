@@ -25,6 +25,12 @@ declare module 'trealla' {
 	interface QueryOptions {
 		// Prolog program text to evaluate before the query
 		program?: string | Uint8Array;
+		encode?: {
+			// Encoding for Prolog atoms. Default is "object".
+			atoms?: "string" | "object";
+			// Encoding for Prolog strings. Default is "string".
+			strings?: "string" | "list";
+		}
 	}
 
 	interface Answer {
@@ -36,7 +42,20 @@ declare module 'trealla' {
 
 	type Solution = Record<string, Term>;
 
-	type Term = Compound | Variable | List | string | number;
+	/*
+		Default encoding (in order of priority):
+		string(X) 	→ string
+		is_list(X)	→ List
+		atom(X) 	→ Atom
+		compound(X) → Compound
+		number(X) 	→ number
+		var(X) 		→ Variable
+	*/
+	type Term = Atom | Compound | Variable | List | string | number;
+
+	interface Atom {
+		functor: string;
+	}
 
 	interface Compound {
 		functor: string;
@@ -44,7 +63,8 @@ declare module 'trealla' {
 	}
 
 	interface Variable {
-		var: string;
+		var: string;   // variable name
+		attr?: Term[]; // residual goals
 	}
 
 	type List = Term[];
