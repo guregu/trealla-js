@@ -99,8 +99,7 @@ declare module 'trealla' {
 		parse(pl: Prolog, stdout: Uint8Array, options?: Options): T;
 		// Yield simple truth value, when output is blank.
 		// e.g. `true.` and `1=2.`.
-		// 0 for success, 1 is for failure.
 		// Return null to bail early and yield no values.
-		truth(pl: Prolog, status: 0 | 1, options?: Options): T | null;
+		truth(pl: Prolog, status: boolean, options?: Options): T | null;
 	}
 }
