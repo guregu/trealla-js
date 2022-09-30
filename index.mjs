@@ -29,8 +29,11 @@ export class Prolog {
 	n = 0;
 	scratch = 0;
 
-	finalizers = new FinalizationRegistry((subquery) => {
-		this.instance.exports.pl_done(subquery);
+	finalizers = new FinalizationRegistry((task) => {
+		if (task.alive) {
+			task.alive = false;
+			this.instance.exports.pl_done(task.subquery);
+		}
 	})
 
 	/**	Create a new Prolog interpreter instance.
@@ -80,6 +83,10 @@ export class Prolog {
 
 		const _id = ++this.n;
 		const token = {};
+		const task = {
+			subquery: 0,
+			alive: false
+		};
 
 		if (program) {
 			await this.consultText(program);
@@ -95,17 +102,16 @@ export class Prolog {
 		const subq_size = 4; // sizeof(void*)
 		const subq_ptr = realloc(0, 0, 1, subq_size); // pl_sub_query**
 		let alive = false;
-		let subquery = 0; // pl_sub_query*
 		let finalizing = false;
 
 		try {
 			pl_query(this.ptr, goalstr.ptr, subq_ptr);
 			goalstr.free();
-			subquery = indirect(this.instance, subq_ptr);
+			task.subquery = indirect(this.instance, subq_ptr); // pl_sub_query*
 			free(subq_ptr, subq_size, 1);
 			do {
-				if (alive && !finalizing) {
-					this.finalizers.register(token, subquery);
+				if (task.alive && !finalizing) {
+					this.finalizers.register(token, task);
 					finalizing = true;
 				}
 				const stdout = this.wasi.getStdoutBuffer();
@@ -114,13 +120,14 @@ export class Prolog {
 					return;
 				}
 				yield toplevel.parse(stdout, encode);
-			} while(alive = pl_redo(subquery) === 1)
+			} while(task.alive = pl_redo(task.subquery) === 1)
 		} finally {
 			if (finalizing) {
 				this.finalizers.unregister(token);
 			}
-			if (alive && subquery !== 0) {
-				pl_done(subquery);
+			if (task.alive && task.subquery !== 0) {
+				task.alive = false;
+				pl_done(task.subquery);
 			}
 		}
 	}
