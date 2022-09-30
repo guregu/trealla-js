@@ -22,7 +22,7 @@ import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla';
 
 // load the Trealla binary from WAPM.io, make sure to use the latest version!
 // see: https://wapm.io/guregu/trealla
-await loadFromWAPM("0.6.0");
+await loadFromWAPM("0.7.1");
 // alternatively, host it yourself and use the load function instead of loadFromWAPM:
 // await load(await WebAssembly.compileStreaming(fetch("https://example.com/foo/bar/tpl.wasm"));
 
@@ -55,6 +55,25 @@ for await (const answer of query) {
 
 Multiple queries can be run concurrently. If you'd like to kill a query early, use the `return()` method on the generator returned from `query()`.
 This is not necessary if you iterate through until it is finished.
+
+### Output format
+
+You can change the output format with the `format` option in queries.
+
+The format is `"js"` by default which goes through `library(js_toplevel)` and returns JSON objects.
+
+### `"prolog"` format
+
+You can get pure text output with the `"prolog"` format.
+The output is the same as Trealla's regular toplevel, but full terms (with a dot) are printed.
+
+```javascript
+for await (const answer of pl.query(`dif(A, B) ; dif(C, D).`, {format: "prolog"})) {
+  console.log(answer);
+};
+// "dif:dif(A,B)."
+// "dif:dif(C,D)."
+```
 
 ### Virtual Filesystem
 
@@ -111,12 +130,19 @@ declare module 'trealla' {
   interface QueryOptions {
     // Prolog program text to evaluate before the query
     program?: string | Uint8Array;
-    encode?: {
-      // Encoding for Prolog atoms. Default is "object".
-      atoms?: "string" | "object";
-      // Encoding for Prolog strings. Default is "string".
-      strings?: "string" | "list";
-    }
+    // Answer format. This changes the return type of the query generator.
+    // "js" (default) returns Javascript objects.
+    // "prolog" returns the standard Prolog toplevel output as strings.
+    format?: "js" | "prolog" | keyof typeof FORMATS | Toplevel<any>;
+    // Encoding options for "js" or custom formats.
+    encode?: EncodingOptions;
+  }
+
+  interface EncodingOptions {
+    // Encoding for Prolog atoms. Default is "object".
+    atoms?: "string" | "object";
+    // Encoding for Prolog strings. Default is "string".
+    strings?: "string" | "list";
   }
 
   interface Answer {
@@ -132,10 +158,10 @@ declare module 'trealla' {
     Default encoding (in order of priority):
     string(X) 	→ string
     is_list(X)	→ List
-    atom(X) 	  → Atom
+    atom(X) 	→ Atom
     compound(X) → Compound
     number(X) 	→ number
-    var(X) 		  → Variable
+    var(X) 		→ Variable
   */
   type Term = Atom | Compound | Variable | List | string | number;
 
@@ -154,6 +180,18 @@ declare module 'trealla' {
   }
 
   type List = Term[];
+
+  const FORMATS: {
+    js: Toplevel<Answer>,
+    prolog: Toplevel<string>,
+    // add your own!
+    [name: string]: Toplevel<any>
+  };
+
+  interface Toplevel<T> {
+    query(goal: string, options?: EncodingOptions): string;
+    parse(stdout: Uint8Array, options?: EncodingOptions): T;
+  }
 }
 ```
 

@@ -62,10 +62,21 @@ export class Prolog {
 	}
 
 	/** Run a query. This is an asynchronous generator function.
+	 *  Use a `for await` loop to easily iterate through results.
 	 *  Call the return() method of the generator to kill it early. */
 	async* query(goal, options = {}) {
 		if (!this.instance) await this.init()
-		const { program, encode } = options;
+		const { 
+			program, 		// Prolog text to consult before running query
+			format = "js", 	// Format (toplevel) selector
+			encode			// Options passed to toplevel
+		} = options;
+
+		const toplevel =
+			typeof format === "string" ? FORMATS[format] : format;
+		if (!toplevel) {
+			throw new Error(`trealla: unknown format: ${format}`);
+		}
 
 		const _id = ++this.n;
 		const token = {};
@@ -80,7 +91,7 @@ export class Prolog {
 		const pl_redo = this.instance.exports.pl_redo;
 		const pl_done = this.instance.exports.pl_done;
 
-		const goalstr = new CString(this.instance, escapeQuery(goal));
+		const goalstr = new CString(this.instance, toplevel.query(goal, encode));
 		const subq_size = 4; // sizeof(void*)
 		const subq_ptr = realloc(0, 0, 1, subq_size); // pl_sub_query**
 		let alive = false;
@@ -102,7 +113,7 @@ export class Prolog {
 					// "; false."
 					return;
 				}
-				yield parseOutput(stdout, encode);
+				yield toplevel.parse(stdout, encode);
 			} while(alive = pl_redo(subquery) === 1)
 		} finally {
 			if (finalizing) {
@@ -118,7 +129,7 @@ export class Prolog {
 	async queryOnce(goal, options) {
 		const q = this.query(goal, options);
 		try {
-			return await q.next();
+			return (await q.next()).value;
 		} finally {
 			q.return();
 		}
@@ -181,6 +192,21 @@ export class Prolog {
 	}
 }
 
+export const FORMATS = {
+	js: {
+		query: function(query) {
+			return `js_ask("${escapeString(query)}")`;
+		},
+		parse: parseOutput
+	},
+	prolog: {
+		query: function(query) { return query },
+		parse: function(stdout, options) {
+			return new TextDecoder().decode(stdout);
+		}
+	}
+};
+
 function parseOutput(stdout, opts) {
 	const dec = new TextDecoder();
 	let start = stdout.indexOf(2); // ASCII START OF TEXT
@@ -222,6 +248,12 @@ function reviver(opts) {
 	}
 }
 
+function escapeString(query) {
+	query = query.replaceAll("\\", "\\\\");
+	query = query.replaceAll(`"`, `\\"`);
+	return query;
+}
+
 function newWASI(library) {
 	const args = ["tpl", "--ns", "-q", "-g", "halt"];
 	if (library) {
@@ -248,9 +280,8 @@ class CString {
 		const buf = new TextEncoder().encode(text);
 		this.size = buf.byteLength + 1;
 
-		const ptr = realloc(0, 0, 1, this.size);
-		this.ptr = ptr;
-		if (ptr === 0) {
+		this.ptr = realloc(0, 0, 1, this.size);
+		if (this.ptr === 0) {
 			throw new Error("could not allocate cstring: " + text);
 		}
 
@@ -278,10 +309,4 @@ class CString {
 function indirect(instance, addr) {
 	if (addr === 0) return 0;
 	return (new Int32Array(instance.exports.memory.buffer))[addr / 4];
-}
-
-function escapeQuery(query) {
-	query = query.replaceAll("\\", "\\\\");
-	query = query.replaceAll(`"`, `\\"`);
-	return `js_ask("${query}")`;
 }

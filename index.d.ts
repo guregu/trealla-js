@@ -25,12 +25,19 @@ declare module 'trealla' {
 	interface QueryOptions {
 		// Prolog program text to evaluate before the query
 		program?: string | Uint8Array;
-		encode?: {
-			// Encoding for Prolog atoms. Default is "object".
-			atoms?: "string" | "object";
-			// Encoding for Prolog strings. Default is "string".
-			strings?: "string" | "list";
-		}
+		// Answer format. This changes the return type of the query generator.
+		// "js" (default) returns Javascript objects.
+		// "prolog" returns the standard Prolog toplevel output as strings.
+		format?: "js" | "prolog" | keyof typeof FORMATS | Toplevel<any>;
+		// Encoding options for "js" or custom formats.
+		encode?: EncodingOptions;
+	}
+
+	interface EncodingOptions {
+		// Encoding for Prolog atoms. Default is "object".
+		atoms?: "string" | "object";
+		// Encoding for Prolog strings. Default is "string".
+		strings?: "string" | "list";
 	}
 
 	interface Answer {
@@ -68,4 +75,16 @@ declare module 'trealla' {
 	}
 
 	type List = Term[];
+
+	const FORMATS: {
+		js: Toplevel<Answer>,
+		prolog: Toplevel<string>,
+		// add your own!
+		[name: string]: Toplevel<any>
+	};
+
+	interface Toplevel<T> {
+		query(goal: string, options?: EncodingOptions): string;
+		parse(stdout: Uint8Array, options?: EncodingOptions): T;
+	}
 }

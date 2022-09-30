@@ -14,6 +14,7 @@ const pl = new Prolog({
 // create a file in the virtual filesystem
 pl.fs.open("/greeting.pl", { write: true, create: true }).writeString(`
   :- module(greeting, [hello/1]).
+  :- dynamic(hello/1).
   hello(world).
   hello(世界).
 `);
@@ -28,7 +29,8 @@ pl.fs.open("/lib/test.pl", { write: true, create: true }).writeString(`library(o
 await pl.consult("greeting");
 
 // assert some dynamic facts
-await pl.queryOnce("assertz(lang(prolog)), greeting:assertz(hello('Welt')).");
+console.log(await pl.queryOnce("assertz(lang(prolog)), greeting:assertz(hello('Welt'))."));
+// { result: 'success', answer: {}, output: '' } // as in the regular toplevel's "true."
 
 // run a query on the file we loaded and facts we asserted
 await dumpQuery(
@@ -86,3 +88,21 @@ async function dumpQuery(query) {
     }
   }
 }
+
+// Prolog-format toplevel
+
+await dumpQuery(
+  pl.query(`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`, {
+    format: "prolog"
+  })
+);
+
+for await (const answer of pl.query(`dif(A, B) ; dif(C, D).`, {format: "prolog"})) {
+  console.log(answer);
+};
+
+console.log(await pl.queryOnce("throw(test).", {format: "prolog"}));
+
+// for await (const answer of pl.query(`throw().`, {format: "prolog"})) {
+//   console.log(answer);
+// };
