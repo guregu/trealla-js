@@ -70,9 +70,9 @@ export class Prolog {
 	async* query(goal, options = {}) {
 		if (!this.instance) await this.init()
 		const { 
-			program, 		// Prolog text to consult before running query
-			format = "js", 	// Format (toplevel) selector
-			encode			// Options passed to toplevel
+			program, 			// Prolog text to consult before running query
+			format = "json", 	// Format (toplevel) selector
+			encode				// Options passed to toplevel
 		} = options;
 
 		const toplevel =
@@ -97,15 +97,16 @@ export class Prolog {
 		const pl_query = this.instance.exports.pl_query;
 		const pl_redo = this.instance.exports.pl_redo;
 		const pl_done = this.instance.exports.pl_done;
+		const get_status = this.instance.exports.get_status;
 
-		const goalstr = new CString(this.instance, toplevel.query(goal, encode));
+		const goalstr = new CString(this.instance, toplevel.query(this, goal, encode));
 		const subq_size = 4; // sizeof(void*)
 		const subq_ptr = realloc(0, 0, 1, subq_size); // pl_sub_query**
 		let alive = false;
 		let finalizing = false;
 
 		try {
-			pl_query(this.ptr, goalstr.ptr, subq_ptr);
+			const ok = pl_query(this.ptr, goalstr.ptr, subq_ptr);
 			goalstr.free();
 			task.subquery = indirect(this.instance, subq_ptr); // pl_sub_query*
 			free(subq_ptr, subq_size, 1);
@@ -115,11 +116,14 @@ export class Prolog {
 					finalizing = true;
 				}
 				const stdout = this.wasi.getStdoutBuffer();
+				const status = get_status(this.ptr) === 1;
 				if (stdout.byteLength === 0) {
-					// "; false."
-					return;
+					const truth = toplevel.truth(this, status, encode);
+					if (truth === null) return;
+					yield truth;
+				} else {
+					yield toplevel.parse(this, status, stdout, encode);
 				}
-				yield toplevel.parse(stdout, encode);
 			} while(task.alive = pl_redo(task.subquery) === 1)
 		} finally {
 			if (finalizing) {
@@ -200,21 +204,29 @@ export class Prolog {
 }
 
 export const FORMATS = {
-	js: {
-		query: function(query) {
+	json: {
+		query: function(_, query) {
 			return `js_ask("${escapeString(query)}")`;
 		},
-		parse: parseOutput
+		parse: parseOutput,
+		truth: function() { return null; }
 	},
 	prolog: {
-		query: function(query) { return query },
-		parse: function(stdout, options) {
-			return new TextDecoder().decode(stdout);
+		query: function(_, query) { return query },
+		parse: function(_, _status, stdout, opts) {
+			const dec = new TextDecoder();
+			if (opts?.dot === false && stdout[stdout.length-1] === 46) // '.'
+				return dec.decode(stdout.subarray(0, stdout.length-1));
+			return dec.decode(stdout);
+		},
+		truth: function(_, status, opts) {
+			return (status ? "true" : "false") +
+				(opts?.dot === false ? "" : ".");
 		}
 	}
 };
 
-function parseOutput(stdout, opts) {
+function parseOutput(_pl, _status, stdout, opts) {
 	const dec = new TextDecoder();
 	let start = stdout.indexOf(2); // ASCII START OF TEXT
 	const end = stdout.indexOf(3); // ASCII END OF TEXT

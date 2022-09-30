@@ -110,8 +110,8 @@ declare module 'trealla' {
   class Prolog {
     constructor(options?: PrologOptions);
 
-    public query(goal: string, options?: QueryOptions): AsyncGenerator<Answer, void, void>;
-    public queryOnce(goal: string, options?: QueryOptions): Promise<Answer>;
+    public query<T = Answer>(goal: string, options?: QueryOptions): AsyncGenerator<T, void, void>;
+    public queryOnce<T = Answer>(goal: string, options?: QueryOptions): Promise<T>;
 
     public consult(filename: string): Promise<void>;
     public consultText(text: string | Uint8Array): Promise<void>;
@@ -120,8 +120,8 @@ declare module 'trealla' {
   }
 
   interface PrologOptions {
-    // library files path (default: "/library")
-    // used by use_module(library(...))
+    // Library files path (default: "/library")
+    // This is for use_module(library(...)).
     library?: string;
     // manually specify module instead of the default
     module?: WebAssembly.Module;
@@ -131,18 +131,27 @@ declare module 'trealla' {
     // Prolog program text to evaluate before the query
     program?: string | Uint8Array;
     // Answer format. This changes the return type of the query generator.
-    // "js" (default) returns Javascript objects.
+    // "json" (default) returns Javascript objects.
     // "prolog" returns the standard Prolog toplevel output as strings.
-    format?: "js" | "prolog" | keyof typeof FORMATS | Toplevel<any>;
-    // Encoding options for "js" or custom formats.
+    // You can add custom formats to the global FORMATS object.
+    format?: keyof typeof FORMATS | Toplevel<any, any>;
+    // Encoding options for "json" or custom formats.
     encode?: EncodingOptions;
   }
 
-  interface EncodingOptions {
+  type EncodingOptions = JSONEncodingOptions | PrologEncodingOptions | Record<string, unknown>;
+
+  interface JSONEncodingOptions {
     // Encoding for Prolog atoms. Default is "object".
     atoms?: "string" | "object";
     // Encoding for Prolog strings. Default is "string".
     strings?: "string" | "list";
+  }
+
+  interface PrologEncodingOptions {
+    // Include the fullstop "." in results.
+    // True by default.
+    dot?: boolean;
   }
 
   interface Answer {
@@ -182,15 +191,22 @@ declare module 'trealla' {
   type List = Term[];
 
   const FORMATS: {
-    js: Toplevel<Answer>,
-    prolog: Toplevel<string>,
+    json: Toplevel<Answer, JSONEncodingOptions>,
+    prolog: Toplevel<string, PrologEncodingOptions>,
     // add your own!
-    [name: string]: Toplevel<any>
+    // [name: string]: Toplevel<any, any>
   };
 
-  interface Toplevel<T> {
-    query(goal: string, options?: EncodingOptions): string;
-    parse(stdout: Uint8Array, options?: EncodingOptions): T;
+  interface Toplevel<T, Options> {
+    // Prepare query string, returns goal to execute.
+    query(pl: Prolog, goal: string, options?: Options): string;
+    // Parse stdout and return an answer.
+    parse(pl: Prolog, stdout: Uint8Array, options?: Options): T;
+    // Yield simple truth value, when output is blank.
+    // e.g. `true.` and `1=2.`.
+    // 0 for success, 1 is for failure.
+    // Return null to bail early and yield no values.
+    truth(pl: Prolog, status: 0 | 1, options?: Options): T | null;
   }
 }
 ```

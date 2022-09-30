@@ -101,7 +101,9 @@ for await (const answer of pl.query(`dif(A, B) ; dif(C, D).`, {format: "prolog"}
   console.log(answer);
 };
 
-console.log(await pl.queryOnce("throw(test).", {format: "prolog"}));
+// console.log(await pl.queryOnce("throw(test).", {format: "prolog"}));
+console.log(await pl.queryOnce("true.", {format: "prolog"}));
+console.log(await pl.queryOnce("fail.", {format: "prolog"}));
 
 // for await (const answer of pl.query(`throw().`, {format: "prolog"})) {
 //   console.log(answer);
