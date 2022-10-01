@@ -5,10 +5,15 @@
   "main": "index.mjs",
   "type": "module",
   "types": "index.d.ts",
-  "files": ["ATTRIBUTION"],
+  "files": [
+    "ATTRIBUTION"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/guregu/trealla-js.git"
+  },
+  "scripts": {
+    "build": "esbuild trealla.mjs --bundle --loader:.wasm=binary --outfile=index.js"
   },
   "keywords": [
     "prolog",
@@ -25,5 +30,8 @@
   "homepage": "https://github.com/guregu/trealla-js#readme",
   "dependencies": {
     "@wasmer/wasi": "^1.1.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.15.10"
   }
 }
