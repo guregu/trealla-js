@@ -39,11 +39,15 @@ export class Prolog {
 	/**	Create a new Prolog interpreter instance.
 	 *	Make sure to load the Trealla module first with load or loadFromWAPM.  */
 	constructor(options = {}) {
-		let { library, module } = options;
+		let {
+			module = tpl,
+			library,
+			env
+		} = options;
 		if (!module) {
 			module = tpl;
 		}
-		this.wasi = newWASI(library);
+		this.wasi = newWASI(library, env);
 		this.module = module;
 	}
 
@@ -272,14 +276,15 @@ function escapeString(query) {
 	return query;
 }
 
-function newWASI(library) {
+function newWASI(library, env) {
 	const args = ["tpl", "--ns", "-q", "-g", "halt"];
 	if (library) {
 		args.push("--library", library);
 	}
 
 	const wasi = new WASI({
-		args: args
+		args: args,
+		env: env
 	});
 	wasi.fs.createDir("/tmp");
 

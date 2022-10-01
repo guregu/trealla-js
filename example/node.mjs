@@ -9,6 +9,10 @@ await load(await WebAssembly.compile(fs.readFileSync("tpl.wasm")));
 // create new Prolog interpreter
 const pl = new Prolog({
   library: "/lib", // optionally specify library directory ("/library" by default)
+  env: {
+    // environment variables (grab them with getenv/2)
+    GREET: 'greetings'
+  }
 });
 
 // create a file in the virtual filesystem
@@ -104,6 +108,9 @@ for await (const answer of pl.query(`dif(A, B) ; dif(C, D).`, {format: "prolog"}
 // console.log(await pl.queryOnce("throw(test).", {format: "prolog"}));
 console.log(await pl.queryOnce("true.", {format: "prolog"}));
 console.log(await pl.queryOnce("fail.", {format: "prolog"}));
+
+// getenv/2
+console.log(await pl.queryOnce("getenv('GREET', X).", {format: "prolog"}));
 
 // for await (const answer of pl.query(`throw().`, {format: "prolog"})) {
 //   console.log(answer);

@@ -18,17 +18,21 @@ declare module 'trealla' {
 		// Library files path (default: "/library")
 		// This is for use_module(library(...)).
 		library?: string;
-		// manually specify module instead of the default
+		// Environment variables.
+		// Accessible with the predicate getenv/2.
+		env?: Record<string, string>;
+		// Manually specify module instead of the default.
 		module?: WebAssembly.Module;
 	}
 
 	interface QueryOptions {
-		// Prolog program text to evaluate before the query
+		// Prolog program text to evaluate before the query.
 		program?: string | Uint8Array;
 		// Answer format. This changes the return type of the query generator.
 		// "json" (default) returns Javascript objects.
 		// "prolog" returns the standard Prolog toplevel output as strings.
 		// You can add custom formats to the global FORMATS object.
+		// You can also pass in a Toplevel object directly.
 		format?: keyof typeof FORMATS | Toplevel<any, any>;
 		// Encoding options for "json" or custom formats.
 		encode?: EncodingOptions;
@@ -49,6 +53,7 @@ declare module 'trealla' {
 		dot?: boolean;
 	}
 
+	// Answer for the "json" format.
 	interface Answer {
 		result: "success" | "failure" | "error";
 		answer?: Solution;
@@ -56,6 +61,7 @@ declare module 'trealla' {
 		output: string; // stdout text
 	}
 
+	// Mapping of variable name → Term substitutions.
 	type Solution = Record<string, Term>;
 
 	/*
@@ -98,7 +104,7 @@ declare module 'trealla' {
 		// Parse stdout and return an answer.
 		parse(pl: Prolog, stdout: Uint8Array, options?: Options): T;
 		// Yield simple truth value, when output is blank.
-		// for queries like e.g. `true.` and `1=2.`.
+		// For queries such as `true.` and `1=2.`.
 		// Return null to bail early and yield no values.
 		truth(pl: Prolog, status: boolean, options?: Options): T | null;
 	}
