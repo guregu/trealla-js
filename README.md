@@ -180,12 +180,12 @@ declare module 'trealla' {
 
   interface Compound {
     functor: string;
-    args: Term[];
+    args: List;
   }
 
   interface Variable {
-    var: string;   // variable name
-    attr?: Term[]; // residual goals
+    var: string; // variable name
+    attr?: List; // residual goals
   }
 
   type List = Term[];
@@ -203,7 +203,7 @@ declare module 'trealla' {
     // Parse stdout and return an answer.
     parse(pl: Prolog, stdout: Uint8Array, options?: Options): T;
     // Yield simple truth value, when output is blank.
-    // e.g. `true.` and `1=2.`.
+    // for queries like e.g. `true.` and `1=2.`.
     // Return null to bail early and yield no values.
     truth(pl: Prolog, status: boolean, options?: Options): T | null;
   }

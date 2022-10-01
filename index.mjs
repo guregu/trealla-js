@@ -102,11 +102,10 @@ export class Prolog {
 		const goalstr = new CString(this.instance, toplevel.query(this, goal, encode));
 		const subq_size = 4; // sizeof(void*)
 		const subq_ptr = realloc(0, 0, 1, subq_size); // pl_sub_query**
-		let alive = false;
 		let finalizing = false;
 
 		try {
-			const ok = pl_query(this.ptr, goalstr.ptr, subq_ptr);
+			pl_query(this.ptr, goalstr.ptr, subq_ptr);
 			goalstr.free();
 			task.subquery = indirect(this.instance, subq_ptr); // pl_sub_query*
 			free(subq_ptr, subq_size, 1);
