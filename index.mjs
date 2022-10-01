@@ -28,13 +28,7 @@ export class Prolog {
 	ptr; // pointer to *prolog instance
 	n = 0;
 	scratch = 0;
-
-	finalizers = new FinalizationRegistry((task) => {
-		if (task.alive) {
-			task.alive = false;
-			this.instance.exports.pl_done(task.subquery);
-		}
-	})
+	finalizers;
 
 	/**	Create a new Prolog interpreter instance.
 	 *	Make sure to load the Trealla module first with load or loadFromWAPM.  */
@@ -49,6 +43,14 @@ export class Prolog {
 		}
 		this.wasi = newWASI(library, env);
 		this.module = module;
+		if (FinalizationRegistry in globalThis) {
+			this.finalizers = new FinalizationRegistry((task) => {
+				if (task.alive) {
+					task.alive = false;
+					this.instance.exports.pl_done(task.subquery);
+				}
+			})
+		}
 	}
 
 	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
@@ -114,7 +116,7 @@ export class Prolog {
 			task.subquery = indirect(this.instance, subq_ptr); // pl_sub_query*
 			free(subq_ptr, subq_size, 1);
 			do {
-				if (task.alive && !finalizing) {
+				if (this.finalizers && task.alive && !finalizing) {
 					this.finalizers.register(token, task);
 					finalizing = true;
 				}
