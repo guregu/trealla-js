@@ -165,6 +165,7 @@ declare module 'trealla' {
     output: string; // stdout text
   }
 
+  // Mapping of variable name → Term substitutions.
   type Solution = Record<string, Term>;
 
   /*
