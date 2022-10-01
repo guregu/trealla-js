@@ -43,7 +43,7 @@ export class Prolog {
 		}
 		this.wasi = newWASI(library, env);
 		this.module = module;
-		if (FinalizationRegistry in globalThis) {
+		if ("FinalizationRegistry" in globalThis) {
 			this.finalizers = new FinalizationRegistry((task) => {
 				if (task.alive) {
 					task.alive = false;
