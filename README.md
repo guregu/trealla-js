@@ -51,6 +51,10 @@ for await (const answer of query) {
 
 Experimental. With great power comes great responsibility 🤠
 
+The JS host will evaluate the expression you give it and marshal it to JSON.
+You can use `js_eval_json/2` to grab the result.
+Note that JSON does not handle all types such as `undefined`.
+
 ```prolog
 greet :-
   js_eval_json("return prompt('Name?');", Name),
@@ -59,6 +63,22 @@ greet :-
 here(URL) :-
   js_eval_json("return location.href;", URL).
 % URL = "https://php.energy/trealla.html"
+```
+
+If your evaluated code returns a promise, Prolog will yield to the host to evaluate the promise.
+Hopefully this should be transparent to the user.
+
+```prolog
+?- js_eval_json("fetch('http://example.com').then(x => x.text());", Src).
+   Src = "<html><head><title>Example page..."
+```
+
+`js_eval/2` works the same but does not attempt to parse the JSON.
+If your JS expression returns a Uint8Array, it will be returned as-is instead of JSON-encoded.
+
+```prolog
+?- js_eval("return new TextEncoder().encode('arbitrary text');", Result)
+   Result = "arbitrary text".
 ```
 
 ### Caveats

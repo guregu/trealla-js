@@ -1,7 +1,6 @@
 // quick & dirty test for local nodejs usage
 
 import { load, Prolog } from '../trealla.js';
-import * as fs from 'node:fs';
 
 await load();
 // await load(await WebAssembly.compile(fs.readFileSync("tpl.wasm")));
@@ -82,7 +81,9 @@ await q1.next();
 await q2.next();
 console.log(await q1.next()); // X=1
 console.log(await q2.next()); // N=11
-await q1.return(); await q2.return(); // kill queries
+// kill queries
+await q1.return();
+await q2.return();
 
 async function dumpQuery(query) {
   for await (const answer of query) {

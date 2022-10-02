@@ -23,6 +23,7 @@ export class Prolog {
 	n = 0;
 	scratch = 0;
 	finalizers;
+	yielding = {};
 
 	/**	Create a new Prolog interpreter instance. */
 	constructor(options = {}) {
@@ -47,7 +48,8 @@ export class Prolog {
 
 		const imports = this.wasi.getImports(tpl);
 		imports.trealla = {
-			"host-call": this._host_call.bind(this)
+			"host-call": this._host_call.bind(this),
+			"host-resume": this._host_resume.bind(this)
 		};
 		this.instance = await WebAssembly.instantiate(tpl, imports);
 
@@ -96,6 +98,7 @@ export class Prolog {
 		const pl_redo = this.instance.exports.pl_redo;
 		const pl_done = this.instance.exports.pl_done;
 		const get_status = this.instance.exports.get_status;
+		const query_did_yield = this.instance.exports.query_did_yield;
 
 		const goalstr = new CString(this.instance, toplevel.query(this, goal, encode));
 		const subq_size = 4; // sizeof(void*)
@@ -119,6 +122,26 @@ export class Prolog {
 					if (truth === null) return;
 					yield truth;
 				} else {
+					// if the guest yielded, run the yielded promise and redo
+					// upon redo, the guest can call '$host_continue'/1 to grab the promise's return value
+					if (query_did_yield(task.subquery)) {
+						const thunk = this.yielding[task.subquery];
+						if (!thunk || !thunk.promise) {
+							console.warn("trealla: query yielded but no promise found", task, thunk);
+							thunk.done = true;
+							continue;
+						}
+						try {
+							thunk.value = await thunk.promise;
+						} catch (err) {
+							// TODO: better format for this
+							thunk.value = {error: `${err}`};
+						}
+						thunk.done = true;
+						continue;
+					}
+
+					// otherwise, pass to toplevel
 					yield toplevel.parse(this, status, stdout, encode);
 				}
 			} while(task.alive = pl_redo(task.subquery) === 1)
@@ -199,21 +222,59 @@ export class Prolog {
 		return this.wasi.fs;
 	}
 
-	_host_call(ptr, msgsize, replysizeptr) {
+	_host_call(subquery, ptr, msgsize, replyptrptr, replysizeptr) {
 		const expr = readString(this.instance, ptr, msgsize);
 		let result;
 		try {
 			const fn = new Function(expr);
 			const x = fn();
-			result = typeof x !== "undefined" ? JSON.stringify(x) : "null";
+			if (x instanceof Promise) {
+				this.yielding[subquery] = {promise: x, done: false};
+				return WASM_HOST_CALL_YIELD;
+			}
+			result = replyMsg(x);
 		} catch(error) {
 			console.error(error);
 			result = JSON.stringify({error: `${error}`});
 		}
 		const reply = new CString(this.instance, result);
 		writeInt32(this.instance, replysizeptr, reply.size-1);
-		return reply.ptr;
+		writeInt32(this.instance, replyptrptr, reply.ptr);
+		return WASM_HOST_CALL_OK;
 	}
+
+	_host_resume(subquery, replyptrptr, replysizeptr) {
+		const task = this.yielding[subquery];
+		if (!task) {
+			return WASM_HOST_CALL_ERROR;
+		}
+		if (!task.done) {
+			throw new Error("trealla: async task didn't complete: " + task);
+		}
+		let result;
+		try {
+			const x = task.value;
+			result = replyMsg(x);
+		} catch(error) {
+			console.error(error);
+			result = JSON.stringify({error: `${error}`});
+		}
+		const reply = new CString(this.instance, result);
+		writeInt32(this.instance, replysizeptr, reply.size-1);
+		writeInt32(this.instance, replyptrptr, reply.ptr);
+		return WASM_HOST_CALL_OK;
+	}
+}
+
+const WASM_HOST_CALL_ERROR = 0;
+const WASM_HOST_CALL_OK    = 1;
+const WASM_HOST_CALL_YIELD = 2;
+
+function replyMsg(x) {
+	if (x instanceof Uint8Array) {
+		return new TextDecoder().decode(x);
+	}
+	return typeof x !== "undefined" ? JSON.stringify(x) : "null";
 }
 
 export const FORMATS = {
