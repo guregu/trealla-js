@@ -90,7 +90,7 @@ This is not necessary if you iterate through until it is finished.
 
 You can change the output format with the `format` option in queries.
 
-The format is `"js"` by default which goes through `library(js_toplevel)` and returns JSON objects.
+The format is `"json"` by default which goes through `library(js_toplevel)` and returns JSON objects.
 
 ### `"prolog"` format
 
