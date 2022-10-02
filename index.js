@@ -85,7 +85,7 @@ export class Prolog {
 		const _id = ++this.n;
 		const token = {};
 		const task = {
-			subquery: 0,
+			subquery: NULL,
 			alive: false
 		};
 
@@ -118,12 +118,12 @@ export class Prolog {
 				}
 				// if the guest yielded, run the yielded promise and redo
 				// upon redo, the guest can call '$host_continue'/1 to grab the promise's return value
-				if (query_did_yield(task.subquery)) {
+				if (query_did_yield(task.subquery) === TRUE) {
 					const thunk = this.yielding[task.subquery];
-					if (!thunk || !thunk.promise) {
-						console.warn("trealla: query yielded but no promise found", task, thunk);
-						thunk.done = true;
-						continue;
+					if (!thunk) {
+						// guest yielded without having called '$host_call'/2
+						// TODO: is it useful to attempt to process the output here?
+						continue
 					}
 					try {
 						thunk.value = await thunk.promise;
@@ -136,7 +136,7 @@ export class Prolog {
 				}
 				// otherwise, pass to toplevel
 				const stdout = this.wasi.getStdoutBuffer();
-				const status = get_status(this.ptr) === 1;
+				const status = get_status(this.ptr) === TRUE;
 				if (stdout.byteLength === 0) {
 					const truth = toplevel.truth(this, status, encode);
 					if (truth === null) return;
@@ -144,12 +144,12 @@ export class Prolog {
 				} else {
 					yield toplevel.parse(this, status, stdout, encode);
 				}
-			} while(task.alive = pl_redo(task.subquery) === 1)
+			} while(task.alive = pl_redo(task.subquery) === TRUE)
 		} finally {
 			if (finalizing) {
 				this.finalizers.unregister(token);
 			}
-			if (task.alive && task.subquery !== 0) {
+			if (task.alive && task.subquery !== NULL) {
 				task.alive = false;
 				pl_done(task.subquery);
 				delete this.yielding[task.subquery];
@@ -178,13 +178,13 @@ export class Prolog {
 
 		const pl_consult = this.instance.exports.pl_consult;
 		const str = new CString(this.instance, filename);
-		let ret = 0;
+		let ret = FALSE;
 		try {
 			ret = pl_consult(this.ptr, str.ptr);
 		} finally {
 			str.free();
 		}
-		if (ret === 0) {
+		if (ret === FALSE) {
 			throw new Error(`trealla: failed to consult file: ${filename}`);
 		}
 	}
@@ -268,9 +268,15 @@ export class Prolog {
 	}
 }
 
+// C-related constants
+const PTRSIZE = 4;
+const ALIGN = 1;
 const WASM_HOST_CALL_ERROR = 0;
-const WASM_HOST_CALL_OK    = 1;
+const WASM_HOST_CALL_OK = 1;
 const WASM_HOST_CALL_YIELD = 2;
+const NULL = 0;
+const FALSE = 0;
+const TRUE = 1;
 
 function replyMsg(x) {
 	if (x instanceof Uint8Array) {
@@ -375,8 +381,8 @@ class CString {
 		const buf = new TextEncoder().encode(text);
 		this.size = buf.byteLength + 1;
 
-		this.ptr = realloc(0, 0, 1, this.size);
-		if (this.ptr === 0) {
+		this.ptr = realloc(NULL, 0, ALIGN, this.size);
+		if (this.ptr === NULL) {
 			throw new Error("could not allocate cstring: " + text);
 		}
 
@@ -391,12 +397,12 @@ class CString {
 	}
 
 	free() {
-		if (this.ptr === 0) {
+		if (this.ptr === NULL) {
 			return;
 		}
 		const free = this.instance.exports.canonical_abi_free;
-		free(this.ptr, this.size, 1);
-		this.ptr = 0;
+		free(this.ptr, this.size, ALIGN);
+		this.ptr = NULL;
 		this.size = 0;
 	}
 }
@@ -404,14 +410,14 @@ class CString {
 function readString(instance, ptr, size) {
 	const mem = new Uint8Array(instance.exports.memory.buffer);
 	const idx = size ? ptr+size :  mem.indexOf(0, ptr);
-	if (idx === 1) {
+	if (idx === -1) {
 		throw new Error(`unterminated string at address ${ptr}`)
 	}
 	return new TextDecoder().decode(mem.subarray(ptr, idx));
 }
 
 function indirect(instance, addr) {
-	if (addr === 0) return 0;
+	if (addr === NULL) return NULL;
 	return (new Int32Array(instance.exports.memory.buffer))[addr / 4];
 }
 

@@ -31,7 +31,7 @@ const pl = new Prolog();
 
 // Queries are async generators.
 // You can run multiple queries against the same interpreter simultaneously.
-const query = pl.query('X = 2, Y is X^2, format("(~w,~w)~n", [X, Y]).');
+const query = pl.query('between(2, 10, X), Y is X^2, format("(~w,~w)~n", [X, Y]).');
 for await (const answer of query) {
   console.log(answer);
 }
@@ -249,6 +249,8 @@ Currently uses the WASM build from [guregu/trealla](https://github.com/guregu/tr
 Output goes through the [`js_toplevel`](https://github.com/guregu/trealla/blob/main/library/js_toplevel.pl) module.
 
 ### Development
+
+Make sure you can build Trealla.
 
 ```bash
 # install deps
