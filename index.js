@@ -37,6 +37,7 @@ export class Prolog {
 				if (task.alive) {
 					task.alive = false;
 					this.instance.exports.pl_done(task.subquery);
+					delete this.yielding[task.subquery];
 				}
 			})
 		}
@@ -151,6 +152,7 @@ export class Prolog {
 			if (task.alive && task.subquery !== 0) {
 				task.alive = false;
 				pl_done(task.subquery);
+				delete this.yielding[task.subquery];
 			}
 		}
 	}
@@ -250,6 +252,7 @@ export class Prolog {
 		if (!task.done) {
 			throw new Error("trealla: async task didn't complete: " + task);
 		}
+		delete this.yielding[subquery];
 		let result;
 		try {
 			const x = task.value;
