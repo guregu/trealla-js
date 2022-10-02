@@ -1,10 +1,10 @@
 // quick & dirty test for local nodejs usage
-// requires tpl.wasm in current dir
 
-import { load, Prolog } from '../index.mjs';
+import { load, Prolog } from '../trealla.js';
 import * as fs from 'node:fs';
 
-await load(await WebAssembly.compile(fs.readFileSync("tpl.wasm")));
+await load();
+// await load(await WebAssembly.compile(fs.readFileSync("tpl.wasm")));
 
 // create new Prolog interpreter
 const pl = new Prolog({

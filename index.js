@@ -1,48 +1,36 @@
 import { init as initWasmer, WASI } from '@wasmer/wasi';
+import tpl_wasm from './libtpl.wasm';
 
-let tpl = null; // default Trealla module
+let tpl = undefined; // default Trealla module
 
 let initRuntime = false;
 async function initInternal() {
 	await initWasmer();
+	tpl = await WebAssembly.compile(tpl_wasm);
 	initRuntime = true;
 }
 
 /** Load the given Trealla binary and set it as the default module. */
-export async function load(module) {
+export async function load() {
 	if (!initRuntime) await initInternal();
-	tpl = module;
-}
-
-/** Load the Trealla binary of the given version from WAPM and set it as the default module. */
-export async function loadFromWAPM(version) {
-	await load(await WebAssembly.compileStreaming(
-		fetch(`https://registry-cdn.wapm.io/contents/guregu/trealla/${version}/tpl.wasm`)));
 }
 
 /** Prolog interpreter instance. */
 export class Prolog {
 	wasi;
 	instance;
-	module;
 	ptr; // pointer to *prolog instance
 	n = 0;
 	scratch = 0;
 	finalizers;
 
-	/**	Create a new Prolog interpreter instance.
-	 *	Make sure to load the Trealla module first with load or loadFromWAPM.  */
+	/**	Create a new Prolog interpreter instance. */
 	constructor(options = {}) {
 		let {
-			module = tpl,
 			library,
 			env
 		} = options;
-		if (!module) {
-			module = tpl;
-		}
 		this.wasi = newWASI(library, env);
-		this.module = module;
 		if ("FinalizationRegistry" in globalThis) {
 			this.finalizers = new FinalizationRegistry((task) => {
 				if (task.alive) {
@@ -55,11 +43,13 @@ export class Prolog {
 
 	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
 	async init() {
-		if (!this.module) throw new Error("trealla: uninitialized; call load first");
 		if (!initRuntime) await initInternal();
 
-		const imports = this.wasi.getImports(this.module);
-		this.instance = await WebAssembly.instantiate(this.module, imports);
+		const imports = this.wasi.getImports(tpl);
+		imports.trealla = {
+			"host-call": this._host_call.bind(this)
+		};
+		this.instance = await WebAssembly.instantiate(tpl, imports);
 
 		// run it once it initialize the global interpreter
 		const exit = this.wasi.start(this.instance);
@@ -80,6 +70,8 @@ export class Prolog {
 			format = "json", 	// Format (toplevel) selector
 			encode				// Options passed to toplevel
 		} = options;
+
+		goal = goal.replaceAll("\n", " ");
 
 		const toplevel =
 			typeof format === "string" ? FORMATS[format] : format;
@@ -177,7 +169,7 @@ export class Prolog {
 	 *  Takes a string or Uint8Array. */
 	async consultText(code) {
 		if (!this.instance) {
-			await this.init(this.module);
+			await this.init();
 		}
 		const filename = await this.writeScratchFile(code);
 		await this.consult(filename);
@@ -205,6 +197,22 @@ export class Prolog {
 	 *	See: https://github.com/wasmerio/wasmer-js */
 	get fs() {
 		return this.wasi.fs;
+	}
+
+	_host_call(ptr, msgsize, replysizeptr) {
+		const expr = readString(this.instance, ptr, msgsize);
+		let result;
+		try {
+			const fn = new Function(expr);
+			const x = fn();
+			result = typeof x !== "undefined" ? JSON.stringify(x) : "null";
+		} catch(error) {
+			console.error(error);
+			result = JSON.stringify({error: `${error}`});
+		}
+		const reply = new CString(this.instance, result);
+		writeInt32(this.instance, replysizeptr, reply.size-1);
+		return reply.ptr;
 	}
 }
 
@@ -292,7 +300,6 @@ function newWASI(library, env) {
 
 	return wasi;
 }
-
 class CString {
 	instance;
 	ptr;
@@ -331,7 +338,20 @@ class CString {
 	}
 }
 
+function readString(instance, ptr, size) {
+	const mem = new Uint8Array(instance.exports.memory.buffer);
+	const idx = size ? ptr+size :  mem.indexOf(0, ptr);
+	if (idx === 1) {
+		throw new Error(`unterminated string at address ${ptr}`)
+	}
+	return new TextDecoder().decode(mem.subarray(ptr, idx));
+}
+
 function indirect(instance, addr) {
 	if (addr === 0) return 0;
 	return (new Int32Array(instance.exports.memory.buffer))[addr / 4];
+}
+
+function writeInt32(instance, addr, int) {
+	new Int32Array(instance.exports.memory.buffer)[addr / 4] = int;
 }

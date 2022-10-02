@@ -1,2 +1,4 @@
 node_modules
 *.wasm
+# ↓ esbuild bundle
+trealla.js*

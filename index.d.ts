@@ -1,6 +1,6 @@
 declare module 'trealla' {
-	function load(module: WebAssembly.Module): Promise<void>;
-	function loadFromWAPM(version: string): Promise<void>;
+  // Call this first to load the runtime.
+	function load(): Promise<void>;
 
 	class Prolog {
 		constructor(options?: PrologOptions);

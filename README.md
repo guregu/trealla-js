@@ -16,21 +16,22 @@ Trealla is built targeting [WASI](https://wasi.dev/) and should be useful for bo
 
 ## Example
 
+### Javascript to Prolog
+
 ```html
 <script type="module">
-import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla';
+import { load, Prolog } from 'https://esm.sh/trealla';
 
-// load the Trealla binary from WAPM.io, make sure to use the latest version!
-// see: https://wapm.io/guregu/trealla
-await loadFromWAPM("0.7.2");
-// alternatively, host it yourself and use the load function instead of loadFromWAPM:
-// await load(await WebAssembly.compileStreaming(fetch("https://example.com/foo/bar/tpl.wasm"));
+// Load the runtime.
+await load();
 
-// each interpreter is independent and persistent 
+// Create a new Prolog interpreter
+// Each interpreter is independent and persistent 
 const pl = new Prolog();
 
-// queries are async generators
-const query = pl.query('between(1, 5, X), Y is X^2, format("(~w,~w)~n", [X, Y]).');
+// Queries are async generators.
+// You can run multiple queries against the same interpreter simultaneously.
+const query = pl.query('X = 2, Y is X^2, format("(~w,~w)~n", [X, Y]).');
 for await (const answer of query) {
   console.log(answer);
 }
@@ -39,16 +40,25 @@ for await (const answer of query) {
 
 ```javascript
 {
-  "output": "(1,1)\n", // stdout output text
-  "result": "success", // can also be "failure" when no answers were found, or "error" when an exception was thrown
-  "answer": {"X": 1, "Y": 1}
-}
-{
   "output": "(2,4)\n",
   "result": "success",
   "answer": {"X": 2, "Y": 4}
 }
 // ...
+```
+
+### Prolog to Javascript
+
+Experimental. With great power comes great responsibility 🤠
+
+```prolog
+greet :-
+  js_eval_json("return prompt('Name?');", Name),
+  format("Greetings, ~s.", [Name]).
+
+here(URL) :-
+  js_eval_json("return location.href;", URL).
+% URL = "https://php.energy/trealla.html"
 ```
 
 ### Caveats
@@ -104,8 +114,7 @@ Approaching stability.
 
 ```typescript
 declare module 'trealla' {
-  function load(module: WebAssembly.Module): Promise<void>;
-  function loadFromWAPM(version: string): Promise<void>;
+  function load(): Promise<void>;
 
   class Prolog {
     constructor(options?: PrologOptions);
@@ -126,12 +135,10 @@ declare module 'trealla' {
     // Environment variables.
     // Accessible with the predicate getenv/2.
     env?: Record<string, string>;
-    // Manually specify module instead of the default.
-    module?: WebAssembly.Module;
   }
 
   interface QueryOptions {
-    // Prolog program text to evaluate before the query
+    // Prolog program text to evaluate before the query.
     program?: string | Uint8Array;
     // Answer format. This changes the return type of the query generator.
     // "json" (default) returns Javascript objects.
@@ -158,6 +165,7 @@ declare module 'trealla' {
     dot?: boolean;
   }
 
+  // Answer for the "json" format.
   interface Answer {
     result: "success" | "failure" | "error";
     answer?: Solution;
@@ -219,6 +227,19 @@ declare module 'trealla' {
 
 Currently uses the WASM build from [guregu/trealla](https://github.com/guregu/trealla).
 Output goes through the [`js_toplevel`](https://github.com/guregu/trealla/blob/main/library/js_toplevel.pl) module.
+
+### Development
+
+```bash
+# install deps
+npm install
+# build wasm
+npm run compile
+# build js
+npm run build
+# "test"
+node examples/node.mjs
+```
 
 ## See Also
 

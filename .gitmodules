@@ -1,0 +1,3 @@
+[submodule "trealla"]
+	path = trealla
+	url = https://github.com/guregu/trealla

@@ -1,19 +1,23 @@
 {
   "name": "trealla",
-  "version": "0.9.4",
+  "version": "0.10.0",
   "description": "Trealla Prolog bindings for JS",
-  "main": "index.mjs",
+  "main": "trealla.js",
   "type": "module",
   "types": "index.d.ts",
   "files": [
-    "ATTRIBUTION"
+    "ATTRIBUTION",
+    "trealla.js.map"
   ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/guregu/trealla-js.git"
   },
   "scripts": {
-    "build": "esbuild trealla.mjs --bundle --loader:.wasm=binary --outfile=index.js"
+    "update": "git submodule update --init --recursive",
+    "compile": "cd trealla && make clean libtpl && cp libtpl.wasm ..",
+    "build": "node make.cjs",
+    "clean": "rm trealla.js trealla.js.map"
   },
   "keywords": [
     "prolog",
@@ -32,6 +36,7 @@
     "@wasmer/wasi": "^1.1.2"
   },
   "devDependencies": {
-    "esbuild": "^0.15.10"
+    "esbuild": "^0.15.10",
+    "node-stdlib-browser": "^1.2.0"
   }
 }

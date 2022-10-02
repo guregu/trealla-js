@@ -33,9 +33,10 @@ human(plato).
 <button onclick="return resetProlog(),false;">Reset Interpreter</button>
 
 <script type="module">
-import { loadFromWAPM, Prolog } from 'https://esm.sh/trealla@0.9.2';
+import { load, Prolog } from 'https://esm.sh/trealla@0.10.0';
+// import { load, Prolog } from './trealla.js';
 
-await loadFromWAPM("0.7.2");
+await load();
 
 let pl = new Prolog();
 
