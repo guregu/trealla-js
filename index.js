@@ -115,6 +115,25 @@ export class Prolog {
 					this.finalizers.register(token, task);
 					finalizing = true;
 				}
+				// if the guest yielded, run the yielded promise and redo
+				// upon redo, the guest can call '$host_continue'/1 to grab the promise's return value
+				if (query_did_yield(task.subquery)) {
+					const thunk = this.yielding[task.subquery];
+					if (!thunk || !thunk.promise) {
+						console.warn("trealla: query yielded but no promise found", task, thunk);
+						thunk.done = true;
+						continue;
+					}
+					try {
+						thunk.value = await thunk.promise;
+					} catch (err) {
+						// TODO: better format for this
+						thunk.value = {error: `${err}`};
+					}
+					thunk.done = true;
+					continue;
+				}
+				// otherwise, pass to toplevel
 				const stdout = this.wasi.getStdoutBuffer();
 				const status = get_status(this.ptr) === 1;
 				if (stdout.byteLength === 0) {
@@ -122,26 +141,6 @@ export class Prolog {
 					if (truth === null) return;
 					yield truth;
 				} else {
-					// if the guest yielded, run the yielded promise and redo
-					// upon redo, the guest can call '$host_continue'/1 to grab the promise's return value
-					if (query_did_yield(task.subquery)) {
-						const thunk = this.yielding[task.subquery];
-						if (!thunk || !thunk.promise) {
-							console.warn("trealla: query yielded but no promise found", task, thunk);
-							thunk.done = true;
-							continue;
-						}
-						try {
-							thunk.value = await thunk.promise;
-						} catch (err) {
-							// TODO: better format for this
-							thunk.value = {error: `${err}`};
-						}
-						thunk.done = true;
-						continue;
-					}
-
-					// otherwise, pass to toplevel
 					yield toplevel.parse(this, status, stdout, encode);
 				}
 			} while(task.alive = pl_redo(task.subquery) === 1)
