@@ -102,15 +102,14 @@ export class Prolog {
 		const query_did_yield = this.instance.exports.query_did_yield;
 
 		const goalstr = new CString(this.instance, toplevel.query(this, goal, encode));
-		const subq_size = 4; // sizeof(void*)
-		const subq_ptr = realloc(0, 0, 1, subq_size); // pl_sub_query**
+		const subq_ptr = realloc(0, 0, 1, PTRSIZE); // pl_sub_query**
 		let finalizing = false;
 
 		try {
 			pl_query(this.ptr, goalstr.ptr, subq_ptr);
 			goalstr.free();
 			task.subquery = indirect(this.instance, subq_ptr); // pl_sub_query*
-			free(subq_ptr, subq_size, 1);
+			free(subq_ptr, PTRSIZE, 1);
 			do {
 				if (this.finalizers && task.alive && !finalizing) {
 					this.finalizers.register(token, task);
@@ -271,12 +270,12 @@ export class Prolog {
 // C-related constants
 const PTRSIZE = 4;
 const ALIGN = 1;
-const WASM_HOST_CALL_ERROR = 0;
-const WASM_HOST_CALL_OK = 1;
-const WASM_HOST_CALL_YIELD = 2;
 const NULL = 0;
 const FALSE = 0;
 const TRUE = 1;
+const WASM_HOST_CALL_ERROR = 0;
+const WASM_HOST_CALL_OK = 1;
+const WASM_HOST_CALL_YIELD = 2;
 
 function replyMsg(x) {
 	if (x instanceof Uint8Array) {
