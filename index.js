@@ -67,7 +67,7 @@ export class Prolog {
 	 *  Use a `for await` loop to easily iterate through results.
 	 *  Call the return() method of the generator to kill it early. */
 	async* query(goal, options = {}) {
-		if (!this.instance) await this.init()
+		if (!this.instance) await this.init();
 		const { 
 			program, 			// Prolog text to consult before running query
 			format = "json", 	// Format (toplevel) selector
@@ -106,7 +106,7 @@ export class Prolog {
 		let finalizing = false;
 
 		try {
-			pl_query(this.ptr, goalstr.ptr, subq_ptr);
+			const ok = pl_query(this.ptr, goalstr.ptr, subq_ptr);
 			goalstr.free();
 			task.subquery = indirect(this.instance, subq_ptr); // pl_sub_query*
 			free(subq_ptr, PTRSIZE, 1);
@@ -134,14 +134,22 @@ export class Prolog {
 					continue;
 				}
 				// otherwise, pass to toplevel
-				const stdout = this.wasi.getStdoutBuffer();
 				const status = get_status(this.ptr) === TRUE;
+				const stdout = this.wasi.getStdoutBuffer();
+				const stderr = this.wasi.getStderrBuffer();
+				if (stderr.byteLength > 0) {
+					const msg = new TextDecoder().decode(stderr);
+					console.log(msg);
+				}
 				if (stdout.byteLength === 0) {
 					const truth = toplevel.truth(this, status, encode);
 					if (truth === null) return;
 					yield truth;
 				} else {
 					yield toplevel.parse(this, status, stdout, encode);
+				}
+				if (ok === FALSE) {
+					return;
 				}
 			} while(task.alive = pl_redo(task.subquery) === TRUE)
 		} finally {
@@ -267,6 +275,13 @@ export class Prolog {
 	}
 }
 
+function replyMsg(x) {
+	if (x instanceof Uint8Array) {
+		return new TextDecoder().decode(x);
+	}
+	return typeof x !== "undefined" ? JSON.stringify(x) : "null";
+}
+
 // C-related constants
 const PTRSIZE = 4;
 const ALIGN = 1;
@@ -276,13 +291,6 @@ const TRUE = 1;
 const WASM_HOST_CALL_ERROR = 0;
 const WASM_HOST_CALL_OK = 1;
 const WASM_HOST_CALL_YIELD = 2;
-
-function replyMsg(x) {
-	if (x instanceof Uint8Array) {
-		return new TextDecoder().decode(x);
-	}
-	return typeof x !== "undefined" ? JSON.stringify(x) : "null";
-}
 
 export const FORMATS = {
 	json: {
