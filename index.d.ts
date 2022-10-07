@@ -102,7 +102,7 @@ declare module 'trealla' {
 		// Prepare query string, returns goal to execute.
 		query(pl: Prolog, goal: string, options?: Options): string;
 		// Parse stdout and return an answer.
-		parse(pl: Prolog, stdout: Uint8Array, options?: Options): T;
+		parse(pl: Prolog, stdout: Uint8Array, stderr: Uint8Array, options?: Options): T;
 		// Yield simple truth value, when output is blank.
 		// For queries such as `true.` and `1=2.`.
 		// Return null to bail early and yield no values.

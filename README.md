@@ -81,6 +81,15 @@ If your JS expression returns a Uint8Array, it will be returned as-is instead of
    Result = "arbitrary text".
 ```
 
+#### JS Predicates
+
+```prolog
+js_eval_json(+Code, -Return).
+js_eval(+Code, -Cs).
+http_consult(+URL).
+js_fetch(+URL, +Options, -Result).
+```
+
 ### Caveats
 
 Multiple queries can be run concurrently. If you'd like to kill a query early, use the `return()` method on the generator returned from `query()`.
@@ -129,7 +138,7 @@ for await (const answer of query) {
 }
 ```
 
-## API
+## Javascript API
 Approaching stability.
 
 ```typescript
@@ -234,7 +243,7 @@ declare module 'trealla' {
     // Prepare query string, returns goal to execute.
     query(pl: Prolog, goal: string, options?: Options): string;
     // Parse stdout and return an answer.
-    parse(pl: Prolog, stdout: Uint8Array, options?: Options): T;
+    parse(pl: Prolog, stdout: Uint8Array, stderr: Uint8Array, options?: Options): T;
     // Yield simple truth value, when output is blank.
     // For queries such as `true.` and `1=2.`.
     // Return null to bail early and yield no values.
@@ -246,7 +255,7 @@ declare module 'trealla' {
 ## Implementation Details
 
 Currently uses the WASM build from [guregu/trealla](https://github.com/guregu/trealla).
-Output goes through the [`js_toplevel`](https://github.com/guregu/trealla/blob/main/library/js_toplevel.pl) module.
+Output goes through the [`js`](https://github.com/guregu/trealla/blob/main/library/js.pl) module.
 
 ### Development
 

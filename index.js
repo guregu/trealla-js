@@ -27,7 +27,7 @@ export class Prolog {
 
 	/**	Create a new Prolog interpreter instance. */
 	constructor(options = {}) {
-		let {
+		const {
 			library,
 			env
 		} = options;
@@ -65,7 +65,10 @@ export class Prolog {
 
 	/** Run a query. This is an asynchronous generator function.
 	 *  Use a `for await` loop to easily iterate through results.
-	 *  Call the return() method of the generator to kill it early. */
+	 *  Exiting the loop will automatically destroy the query and reclaim memory.
+	 *  Call the return() method of the generator to kill it early if manually iterating with next().
+	 *  Runtimes that support finalizers will make a best effort attempt to kill live but garbage-collected queries.
+	 **/
 	async* query(goal, options = {}) {
 		if (!this.instance) await this.init();
 		const { 
@@ -146,7 +149,7 @@ export class Prolog {
 					if (truth === null) return;
 					yield truth;
 				} else {
-					yield toplevel.parse(this, status, stdout, encode);
+					yield toplevel.parse(this, status, stdout, stderr, encode);
 				}
 				if (ok === FALSE) {
 					return;
@@ -302,7 +305,7 @@ export const FORMATS = {
 	},
 	prolog: {
 		query: function(_, query) { return query },
-		parse: function(_, _status, stdout, opts) {
+		parse: function(_, _status, stdout, stderr, opts) {
 			const dec = new TextDecoder();
 			if (opts?.dot === false && stdout[stdout.length-1] === 46) // '.'
 				return dec.decode(stdout.subarray(0, stdout.length-1));
@@ -315,7 +318,7 @@ export const FORMATS = {
 	}
 };
 
-function parseOutput(_pl, _status, stdout, opts) {
+function parseOutput(_pl, _status, stdout, _stderr, opts) {
 	const dec = new TextDecoder();
 	let start = stdout.indexOf(2); // ASCII START OF TEXT
 	const end = stdout.indexOf(3); // ASCII END OF TEXT
@@ -416,7 +419,7 @@ class CString {
 
 function readString(instance, ptr, size) {
 	const mem = new Uint8Array(instance.exports.memory.buffer);
-	const idx = size ? ptr+size :  mem.indexOf(0, ptr);
+	const idx = size ? ptr+size : mem.indexOf(0, ptr);
 	if (idx === -1) {
 		throw new Error(`unterminated string at address ${ptr}`)
 	}
