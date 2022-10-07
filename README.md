@@ -143,11 +143,12 @@ Approaching stability.
 
 ```typescript
 declare module 'trealla' {
+  // Call this first to load the runtime.
   function load(): Promise<void>;
 
   class Prolog {
     constructor(options?: PrologOptions);
-
+  
     public query<T = Answer>(goal: string, options?: QueryOptions): AsyncGenerator<T, void, void>;
     public queryOnce<T = Answer>(goal: string, options?: QueryOptions): Promise<T>;
 
@@ -164,6 +165,8 @@ declare module 'trealla' {
     // Environment variables.
     // Accessible with the predicate getenv/2.
     env?: Record<string, string>;
+    // Manually specify module instead of the default.
+    module?: WebAssembly.Module;
   }
 
   interface QueryOptions {
@@ -186,6 +189,11 @@ declare module 'trealla' {
     atoms?: "string" | "object";
     // Encoding for Prolog strings. Default is "string".
     strings?: "string" | "list";
+    // Functor for compounds of arity 1 to be converted to booleans/null/undefined.
+    // e.g. "{}" to turn {true} into true ala Tau, "@" for SWI-ish behavior.
+    booleans?: string;
+    nulls?: string;
+    undefineds?: string;
   }
 
   interface PrologEncodingOptions {

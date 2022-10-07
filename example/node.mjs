@@ -116,6 +116,6 @@ console.log(await pl.queryOnce("getenv('GREET', X).", {format: "prolog"}));
 // trace
 console.log(await pl.queryOnce("trace, findall(X, between(1,10,X), Xs).", {format: "prolog"}));
 
-// for await (const answer of pl.query(`throw().`, {format: "prolog"})) {
-//   console.log(answer);
-// };
+// boolean
+console.log(await pl.queryOnce("T = {true}, F = {false}, N = {null}.", {format: "json", encode: {booleans: "{}", nulls: "{}"}}));
+console.log(await pl.queryOnce("T = @true, F = @false, N = @null.", {program: ":- op(201, fx, @).", format: "json", encode: {booleans: "@", nulls: "@"}}));

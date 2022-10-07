@@ -335,15 +335,37 @@ function parseOutput(_pl, _status, stdout, _stderr, opts) {
 
 function reviver(opts) {
 	if (!opts) return undefined;
-	const { atoms, strings } = opts;
+	const { atoms, strings, booleans, nulls, undefineds } = opts;
 	return function(k, v) {
-		// atoms
-		if (typeof v === "object" && typeof v.functor === "string" && (!v.args || v.args.length === 0)) {
-			switch (atoms) {
-			case "string":
-				return v.functor;
-			case "object":
-				return v;
+		if (typeof v === "object" && typeof v.functor === "string") {
+			// atoms
+			if (!v.args || v.args.length === 0) {
+				switch (atoms) {
+				case "string":
+					return v.functor;
+				case "object":
+					return v;
+				}
+			}
+			if ((booleans || nulls || undefineds) &&  typeof v === "object" && v.args?.length === 1) {
+				const atom = typeof v.args[0] === "string" ? v.args[0] : v.args[0].functor;
+				// booleans
+				if (v.functor === booleans) {
+					switch (atom) {
+					case "true":
+						return true;
+					case "false":
+						return false;
+					}
+				}
+				// nulls
+				if (v.functor === nulls && atom === "null") {
+					return null;
+				}
+				// undefineds
+				if (v.functor === undefineds && atom === "undefined") {
+					return undefined;
+				}
 			}
 		}
 		// strings

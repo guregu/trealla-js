@@ -45,6 +45,11 @@ declare module 'trealla' {
 		atoms?: "string" | "object";
 		// Encoding for Prolog strings. Default is "string".
 		strings?: "string" | "list";
+		// Functor for compounds of arity 1 to be converted to booleans/null/undefined.
+		// e.g. "{}" to turn {true} into true ala Tau, "@" for SWI-ish behavior.
+		booleans?: string;
+		nulls?: string;
+		undefineds?: string;
 	}
 
 	interface PrologEncodingOptions {
