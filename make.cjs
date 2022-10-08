@@ -10,7 +10,7 @@ const stdLibBrowser = require('node-stdlib-browser');
 		outfile: 'trealla.js',
 		format: 'esm',
 		loader: {'.wasm': 'binary'},
-		target: ['firefox76', 'safari15'],
+		target: ['firefox78', 'safari15'],
 		minify: true,
 		sourcemap: true,
 		inject: [require.resolve('node-stdlib-browser/helpers/esbuild/shim')],

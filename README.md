@@ -23,6 +23,7 @@ It seems like esm.sh is having some trouble at the moment ([issue #19](https://g
 ```js
 import { load, Prolog } from 'https://esm.run/trealla';
 import { load, Prolog } from 'https://unpkg.com/trealla';
+import { load, Prolog } from 'https://cdn.skypack.dev/trealla';
 // import { load, Prolog } from 'https://esm.sh/trealla';
 ```
 
@@ -30,8 +31,12 @@ import { load, Prolog } from 'https://unpkg.com/trealla';
 
 This package is [available on NPM](https://www.npmjs.com/package/trealla) as `trealla`.
 
-```
+```bash
 npm install trealla
+```
+
+```js
+import { load, Prolog } from 'trealla';
 ```
 
 ## Example

@@ -16,7 +16,7 @@ async function initInternal() {
 	initRuntime = true;
 }
 
-/** Load the given Trealla binary and set it as the default module. */
+/** Load the Trealla and wasmer-js runtimes. */
 export async function load() {
 	if (!initRuntime) await initInternal();
 }
