@@ -2,7 +2,6 @@ import { load, Prolog } from '../trealla.js';
 
 await load();
 
-// create new Prolog interpreter
 const pl = new Prolog();
 
 console.dir(

@@ -1,5 +1,11 @@
 import { init as initWasmer, WASI } from '@wasmer/wasi';
-import tpl_wasm from './libtpl.wasm';
+
+import { CString, indirect, readString, writeUint32,
+	PTRSIZE, ALIGN, NULL, FALSE, TRUE } from './c';
+import { FORMATS } from './toplevel';
+import tpl_wasm from '../libtpl.wasm';
+
+export { FORMATS } from './toplevel';
 
 let tpl = undefined; // default Trealla module
 
@@ -29,9 +35,10 @@ export class Prolog {
 	constructor(options = {}) {
 		const {
 			library,
-			env
+			env,
+			quiet
 		} = options;
-		this.wasi = newWASI(library, env);
+		this.wasi = newWASI(library, env, quiet);
 		if ("FinalizationRegistry" in globalThis) {
 			this.finalizers = new FinalizationRegistry((task) => {
 				if (task.alive) {
@@ -66,7 +73,7 @@ export class Prolog {
 	/** Run a query. This is an asynchronous generator function.
 	 *  Use a `for await` loop to easily iterate through results.
 	 *  Exiting the loop will automatically destroy the query and reclaim memory.
-	 *  Call the return() method of the generator to kill it early if manually iterating with next().
+	 *  Call the `return()` method of the generator to kill it early if manually iterating with `next()`.
 	 *  Runtimes that support finalizers will make a best effort attempt to kill live but garbage-collected queries.
 	 **/
 	async* query(goal, options = {}) {
@@ -105,7 +112,7 @@ export class Prolog {
 		const query_did_yield = this.instance.exports.query_did_yield;
 
 		const goalstr = new CString(this.instance, toplevel.query(this, goal, encode));
-		const subq_ptr = realloc(0, 0, 1, PTRSIZE); // pl_sub_query**
+		const subq_ptr = realloc(0, 0, ALIGN, PTRSIZE); // pl_sub_query**
 		let finalizing = false;
 
 		try {
@@ -140,12 +147,8 @@ export class Prolog {
 				const status = get_status(this.ptr) === TRUE;
 				const stdout = this.wasi.getStdoutBuffer();
 				const stderr = this.wasi.getStderrBuffer();
-				if (stderr.byteLength > 0) {
-					const msg = new TextDecoder().decode(stderr);
-					console.log(msg);
-				}
 				if (stdout.byteLength === 0) {
-					const truth = toplevel.truth(this, status, encode);
+					const truth = toplevel.truth(this, status, stderr, encode);
 					if (truth === null) return;
 					yield truth;
 				} else {
@@ -249,8 +252,8 @@ export class Prolog {
 			result = JSON.stringify({error: `${error}`});
 		}
 		const reply = new CString(this.instance, result);
-		writeInt32(this.instance, replysizeptr, reply.size-1);
-		writeInt32(this.instance, replyptrptr, reply.ptr);
+		writeUint32(this.instance, replysizeptr, reply.size-1);
+		writeUint32(this.instance, replyptrptr, reply.ptr);
 		return WASM_HOST_CALL_OK;
 	}
 
@@ -272,11 +275,16 @@ export class Prolog {
 			result = JSON.stringify({error: `${error}`});
 		}
 		const reply = new CString(this.instance, result);
-		writeInt32(this.instance, replysizeptr, reply.size-1);
-		writeInt32(this.instance, replyptrptr, reply.ptr);
+		writeUint32(this.instance, replysizeptr, reply.size-1);
+		writeUint32(this.instance, replyptrptr, reply.ptr);
 		return WASM_HOST_CALL_OK;
 	}
 }
+
+// From -DWASM_IMPORTS
+const WASM_HOST_CALL_ERROR = 0;
+const WASM_HOST_CALL_OK = 1;
+const WASM_HOST_CALL_YIELD = 2;
 
 function replyMsg(x) {
 	if (x instanceof Uint8Array) {
@@ -285,113 +293,10 @@ function replyMsg(x) {
 	return typeof x !== "undefined" ? JSON.stringify(x) : "null";
 }
 
-// C-related constants
-const PTRSIZE = 4;
-const ALIGN = 1;
-const NULL = 0;
-const FALSE = 0;
-const TRUE = 1;
-const WASM_HOST_CALL_ERROR = 0;
-const WASM_HOST_CALL_OK = 1;
-const WASM_HOST_CALL_YIELD = 2;
-
-export const FORMATS = {
-	json: {
-		query: function(_, query) {
-			return `js_ask("${escapeString(query)}")`;
-		},
-		parse: parseOutput,
-		truth: function() { return null; }
-	},
-	prolog: {
-		query: function(_, query) { return query },
-		parse: function(_, _status, stdout, stderr, opts) {
-			const dec = new TextDecoder();
-			if (opts?.dot === false && stdout[stdout.length-1] === 46) // '.'
-				return dec.decode(stdout.subarray(0, stdout.length-1));
-			return dec.decode(stdout);
-		},
-		truth: function(_, status, opts) {
-			return (status ? "true" : "false") +
-				(opts?.dot === false ? "" : ".");
-		}
-	}
-};
-
-function parseOutput(_pl, _status, stdout, _stderr, opts) {
-	const dec = new TextDecoder();
-	let start = stdout.indexOf(2); // ASCII START OF TEXT
-	const end = stdout.indexOf(3); // ASCII END OF TEXT
-	if (start > end) {
-		start = -1;
-	}
-	const nl = stdout.indexOf(10, end+1); // LINE FEED
-	const butt = nl >= 0 ? nl : stdout.length;
-	const json = dec.decode(stdout.slice(end + 1, butt));
-	const msg = JSON.parse(json, reviver(opts));
-	msg.output = dec.decode(stdout.slice(start + 1, end));
-	return msg;
-}
-
-function reviver(opts) {
-	if (!opts) return undefined;
-	const { atoms, strings, booleans, nulls, undefineds } = opts;
-	return function(k, v) {
-		if (typeof v === "object" && typeof v.functor === "string") {
-			// atoms
-			if (!v.args || v.args.length === 0) {
-				switch (atoms) {
-				case "string":
-					return v.functor;
-				case "object":
-					return v;
-				}
-			}
-			if ((booleans || nulls || undefineds) &&  typeof v === "object" && v.args?.length === 1) {
-				const atom = typeof v.args[0] === "string" ? v.args[0] : v.args[0].functor;
-				// booleans
-				if (v.functor === booleans) {
-					switch (atom) {
-					case "true":
-						return true;
-					case "false":
-						return false;
-					}
-				}
-				// nulls
-				if (v.functor === nulls && atom === "null") {
-					return null;
-				}
-				// undefineds
-				if (v.functor === undefineds && atom === "undefined") {
-					return undefined;
-				}
-			}
-		}
-		// strings
-		if (typeof v === "string" && k !== "result" && k !== "output") {
-			switch (strings) {
-			case "list":
-				return v.split("");
-			case "string":
-				return v;
-			}
-		}
-		return v;
-	}
-}
-
-function escapeString(query) {
-	query = query.replaceAll("\\", "\\\\");
-	query = query.replaceAll(`"`, `\\"`);
-	return query;
-}
-
-function newWASI(library, env) {
-	const args = ["tpl", "--ns", "-q", "-g", "halt"];
-	if (library) {
-		args.push("--library", library);
-	}
+function newWASI(library, env, quiet) {
+	const args = ["tpl", "--ns", "-g", "halt"];
+	if (library) args.push("--library", library);
+	if (quiet) args.push("-q");
 
 	const wasi = new WASI({
 		args: args,
@@ -400,59 +305,4 @@ function newWASI(library, env) {
 	wasi.fs.createDir("/tmp");
 
 	return wasi;
-}
-class CString {
-	instance;
-	ptr;
-	size;
-
-	constructor(instance, text) {
-		this.instance = instance;
-		const realloc = instance.exports.canonical_abi_realloc;
-
-		const buf = new TextEncoder().encode(text);
-		this.size = buf.byteLength + 1;
-
-		this.ptr = realloc(NULL, 0, ALIGN, this.size);
-		if (this.ptr === NULL) {
-			throw new Error("could not allocate cstring: " + text);
-		}
-
-		try {
-			const mem = new Uint8Array(instance.exports.memory.buffer, this.ptr, this.size);
-			mem.set(buf);
-			mem[buf.byteLength] = 0;
-		} catch (err) {
-			this.free();
-			throw err;
-		}
-	}
-
-	free() {
-		if (this.ptr === NULL) {
-			return;
-		}
-		const free = this.instance.exports.canonical_abi_free;
-		free(this.ptr, this.size, ALIGN);
-		this.ptr = NULL;
-		this.size = 0;
-	}
-}
-
-function readString(instance, ptr, size) {
-	const mem = new Uint8Array(instance.exports.memory.buffer);
-	const idx = size ? ptr+size : mem.indexOf(0, ptr);
-	if (idx === -1) {
-		throw new Error(`unterminated string at address ${ptr}`)
-	}
-	return new TextDecoder().decode(mem.subarray(ptr, idx));
-}
-
-function indirect(instance, addr) {
-	if (addr === NULL) return NULL;
-	return (new Int32Array(instance.exports.memory.buffer))[addr / 4];
-}
-
-function writeInt32(instance, addr, int) {
-	new Int32Array(instance.exports.memory.buffer)[addr / 4] = int;
 }

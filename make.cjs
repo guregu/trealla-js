@@ -5,7 +5,7 @@ const stdLibBrowser = require('node-stdlib-browser');
 
 (async () => {
 	await esbuild.build({
-		entryPoints: ['index.js'],
+		entryPoints: ['src/index.js'],
 		bundle: true,
 		outfile: 'trealla.js',
 		format: 'esm',

@@ -1,9 +1,9 @@
 // quick & dirty test for local nodejs usage
+// should work the same in browsers too
 
 import { load, Prolog } from '../trealla.js';
 
 await load();
-// await load(await WebAssembly.compile(fs.readFileSync("tpl.wasm")));
 
 // create new Prolog interpreter
 const pl = new Prolog({
@@ -85,15 +85,6 @@ console.log(await q2.next()); // N=11
 await q1.return();
 await q2.return();
 
-async function dumpQuery(query) {
-  for await (const answer of query) {
-    console.log(answer);
-    if (answer.error) {
-      console.log(JSON.stringify(answer));
-    }
-  }
-}
-
 // Prolog-format toplevel
 
 await dumpQuery(
@@ -102,6 +93,7 @@ await dumpQuery(
   })
 );
 
+// residual goals
 for await (const answer of pl.query(`dif(A, B) ; dif(C, D).`, {format: "prolog"})) {
   console.log(answer);
 };
@@ -119,3 +111,17 @@ console.log(await pl.queryOnce("trace, findall(X, between(1,10,X), Xs).", {forma
 // boolean
 console.log(await pl.queryOnce("T = {true}, F = {false}, N = {null}.", {format: "json", encode: {booleans: "{}", nulls: "{}"}}));
 console.log(await pl.queryOnce("T = @true, F = @false, N = @null.", {program: ":- op(201, fx, @).", format: "json", encode: {booleans: "@", nulls: "@"}}));
+
+// singleton warning
+console.dir(await pl.queryOnce("x(X).", {program: "x(A) :- atom(B).", format: "json"}), {depth: null});
+// TODO: this reports the last module loaded as the error location which is kinda confusing
+console.dir(await pl.queryOnce("syntax error :-", {format: "prolog"}), {depth: null});
+
+async function dumpQuery(query) {
+  for await (const answer of query) {
+    console.log(answer);
+    if (answer.error) {
+      console.log(JSON.stringify(answer));
+    }
+  }
+}

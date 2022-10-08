@@ -40,9 +40,9 @@ for await (const answer of query) {
 
 ```javascript
 {
-  "output": "(2,4)\n",
   "result": "success",
-  "answer": {"X": 2, "Y": 4}
+  "answer": {"X": 2, "Y": 4},
+  "stdout": "(2,4)\n"
 }
 // ...
 ```
@@ -148,7 +148,7 @@ declare module 'trealla' {
 
   class Prolog {
     constructor(options?: PrologOptions);
-  
+
     public query<T = Answer>(goal: string, options?: QueryOptions): AsyncGenerator<T, void, void>;
     public queryOnce<T = Answer>(goal: string, options?: QueryOptions): Promise<T>;
 
@@ -165,6 +165,8 @@ declare module 'trealla' {
     // Environment variables.
     // Accessible with the predicate getenv/2.
     env?: Record<string, string>;
+    // Quiet mode. Disables warnings printed to stderr if true.
+    quiet?: boolean;
     // Manually specify module instead of the default.
     module?: WebAssembly.Module;
   }
@@ -207,7 +209,8 @@ declare module 'trealla' {
     result: "success" | "failure" | "error";
     answer?: Solution;
     error?: Term;
-    output: string; // stdout text
+    stdout?: string; // standard output text (user_output in Prolog)
+    stderr?: string; // standard error text (user_error in Prolog)
   }
 
   // Mapping of variable name → Term substitutions.
@@ -251,11 +254,11 @@ declare module 'trealla' {
     // Prepare query string, returns goal to execute.
     query(pl: Prolog, goal: string, options?: Options): string;
     // Parse stdout and return an answer.
-    parse(pl: Prolog, stdout: Uint8Array, stderr: Uint8Array, options?: Options): T;
+    parse(pl: Prolog, status: boolean, stdout: Uint8Array, stderr: Uint8Array, options?: Options): T;
     // Yield simple truth value, when output is blank.
     // For queries such as `true.` and `1=2.`.
     // Return null to bail early and yield no values.
-    truth(pl: Prolog, status: boolean, options?: Options): T | null;
+    truth(pl: Prolog, status: boolean, stderr: Uint8Array, options?: Options): T | null;
   }
 }
 ```
