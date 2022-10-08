@@ -11,8 +11,28 @@ Trealla is built targeting [WASI](https://wasi.dev/) and should be useful for bo
 **Status**: beta!
 
 ## Get
-- [`https://esm.sh/trealla`](https://esm.sh/)
-- [`npm install trealla`](https://www.npmjs.com/package/trealla)
+
+### JS Modules
+
+You can import Trealla directly from a CDN that supports ECMAScript Modules.
+
+For now, it's best to pin a version as in: `https://esm.run/trealla@0.12.0`.
+
+It seems like esm.sh is having some trouble at the moment ([issue #19](https://github.com/guregu/trealla-js/issues/19))
+
+```js
+import { load, Prolog } from 'https://esm.run/trealla';
+import { load, Prolog } from 'https://unpkg.com/trealla';
+// import { load, Prolog } from 'https://esm.sh/trealla';
+```
+
+### NPM
+
+This package is [available on NPM](https://www.npmjs.com/package/trealla) as `trealla`.
+
+```
+npm install trealla
+```
 
 ## Example
 
@@ -20,9 +40,10 @@ Trealla is built targeting [WASI](https://wasi.dev/) and should be useful for bo
 
 ```html
 <script type="module">
-import { load, Prolog } from 'https://esm.sh/trealla';
+import { load, Prolog } from 'https://esm.run/trealla';
 
 // Load the runtime.
+// This is requred before construction of any interpreters.
 await load();
 
 // Create a new Prolog interpreter
@@ -79,15 +100,6 @@ If your JS expression returns a Uint8Array, it will be returned as-is instead of
 ```prolog
 ?- js_eval("return new TextEncoder().encode('arbitrary text');", Result)
    Result = "arbitrary text".
-```
-
-#### JS Predicates
-
-```prolog
-js_eval_json(+Code, -Return).
-js_eval(+Code, -Cs).
-http_consult(+URL).
-js_fetch(+URL, +Options, -Result).
 ```
 
 ### Caveats
@@ -261,6 +273,100 @@ declare module 'trealla' {
     truth(pl: Prolog, status: boolean, stderr: Uint8Array, options?: Options): T | null;
   }
 }
+```
+
+
+# Predicate reference
+
+## library(js)
+
+Module `library(js)` is autoloaded. It provides predicates for calling into the host.
+
+### http_consult/1
+
+Load Prolog code from URL.
+
+```prolog
+%! http_consult(+URL) is det.
+%  Downloads Prolog code from URL, which must be a string, and consults it.
+http_consult(URL).
+```
+
+### js_fetch/3
+
+Fetch content from a URL.
+
+```prolog
+%! js_fetch(+URL, +Options, -Content) is det.
+%  Fetch URL (string) and unify the result with Content.
+%  This is a friendly wrapper around Javascript's fetch API.
+%  Options is a list of options:
+%  - as(string): Content will be unified with the text of the result as a string
+%  - as(json): Content will be parsed as JSON and unified with a JSON term
+%  - headers(["key"-"value", ...]): HTTP headers to send
+%  - body(Cs): body to send (Cs is string)
+js_fetch(URL, Options, Content).
+```
+
+### js_eval_json/2
+
+Evaluate a string of Javascript code.
+
+```prolog
+%! js_eval_json(+Code, -JSON) is det.
+%  Evaluate Code, which must be a string of valid Javascript code.
+%  Returning a promise will cause the query to yield to the host. The host will await the promise and resume the query.
+%  Return values are encoded to JSON and returned as a JSON term (see pseudojson:json_value/2).
+js_eval_json(Code, JSON).
+```
+
+### js_eval/2
+
+Low-level predicate for evaluating JS code.
+
+```prolog
+%! js_eval(+Code, -Cs) is det.
+%  Low-level predicate that functions the same as js_eval_json/2 but without the JSON decoding.
+%  Returning a Uint8Array in your JS code will bypass the host's default JSON encoding.
+%  Combined with this, you can customize the host->guest API.
+js_eval(Code, Cs).
+```
+
+## library(pseudojson)
+
+Module `library(pseudojson)` is preloaded. It provides very fast predicates for encoding and decoding JSON.
+Its One Crazy Trick is using regular Prolog terms such as `{"foo":"bar"}` for reading/writing.
+This means that it accepts invalid JSON that is a valid Prolog term.
+
+The predicate `json_value/2` converts between the same representation of JSON values as `library(json)`, to ensure future compatibility.
+You are free to use `library(json)` which provides a JSON DCG that properly validates (but is slow for certain inputs).
+
+### json_chars/2
+
+Encoding and decoding of JSON strings.
+
+```prolog
+%! json_chars(?JSON, ?Cs) is det.
+%  JSON is a Prolog term representing the JSON.
+%  Cs is a JSON string.
+json_chars(JSON, Cs).
+```
+
+### json_value/2
+
+Relates JSON terms and friendlier Value terms that are compatible with `library(json)`.
+
+- strings: `string("abc")`
+- numbers: `number(123)`
+- booleans: `boolean(true)`
+- objects: `pairs([string("key")-Value, ...])`
+- arrays: `list([...])`
+
+```prolog
+%! json_value(?JSON, ?Value) is det.
+%  Unifies JSON and Value with their library(pseudojson) and library(json) counterparts.
+%  Can be used to convert between JSON terms and friendlier Value terms.
+json_value(JSON, Value).
 ```
 
 ## Implementation Details

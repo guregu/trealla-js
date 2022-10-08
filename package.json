@@ -1,6 +1,6 @@
 {
   "name": "trealla",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Trealla Prolog bindings for JS",
   "main": "trealla.js",
   "type": "module",
@@ -14,7 +14,7 @@
     "url": "git+https://github.com/guregu/trealla-js.git"
   },
   "scripts": {
-    "clean": "rm -f libtpl.wasm trealla.js trealla.js.map",
+    "clean": "rm -f src/libtpl.wasm trealla.js trealla.js.map",
     "update": "git submodule update --init --recursive",
     "compile": "cd trealla && make clean libtpl && cp libtpl.wasm ..",
     "build": "node make.cjs"
