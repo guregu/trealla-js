@@ -1,7 +1,7 @@
 // quick & dirty test for local nodejs usage
 // should work the same in browsers too
 
-import { load, Prolog } from '../trealla.js';
+import { load, Prolog, atom, Compound } from '../trealla.js';
 
 await load();
 
@@ -116,6 +116,19 @@ console.log(await pl.queryOnce("T = @true, F = @false, N = @null.", {program: ":
 console.dir(await pl.queryOnce("x(X).", {program: "x(A) :- atom(B).", format: "json"}), {depth: null});
 // TODO: this reports the last module loaded as the error location which is kinda confusing
 console.dir(await pl.queryOnce("syntax error :-", {format: "prolog"}), {depth: null});
+
+console.dir(await pl.queryOnce("write(X), nl, write(Y), nl, write(Z).", {
+  bind: {"X": 123, "Y": atom`hello`, "Z": new Compound("mortal", ["socrates"])}
+}));
+
+
+const got = (await pl.queryOnce("write(X), X=Y, Z=abc(def(xx, 123), Q), dif(W,T).", {})).answer;
+for (const [k, v] of Object.entries(got)) {
+  console.dir({key: k, val: v, pl: v.toProlog()}, {depth: null});
+}
+
+const greeting = await pl.queryOnce('format("hello ~a", [X])', {bind: {X: atom`world`}});
+console.log(greeting.stdout); // "hello world"
 
 async function dumpQuery(query) {
   for await (const answer of query) {

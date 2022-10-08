@@ -6,6 +6,7 @@ import { FORMATS } from './toplevel';
 import tpl_wasm from '../libtpl.wasm';
 
 export { FORMATS } from './toplevel';
+export * from './term';
 
 let tpl = undefined; // default Trealla module
 
@@ -78,7 +79,8 @@ export class Prolog {
 	 **/
 	async* query(goal, options = {}) {
 		if (!this.instance) await this.init();
-		const { 
+		const {
+			bind,
 			program, 			// Prolog text to consult before running query
 			format = "json", 	// Format (toplevel) selector
 			encode				// Options passed to toplevel
@@ -111,7 +113,7 @@ export class Prolog {
 		const get_status = this.instance.exports.get_status;
 		const query_did_yield = this.instance.exports.query_did_yield;
 
-		const goalstr = new CString(this.instance, toplevel.query(this, goal, encode));
+		const goalstr = new CString(this.instance, toplevel.query(this, goal, bind, encode));
 		const subq_ptr = realloc(0, 0, ALIGN, PTRSIZE); // pl_sub_query**
 		let finalizing = false;
 

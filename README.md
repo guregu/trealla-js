@@ -16,7 +16,7 @@ Trealla is built targeting [WASI](https://wasi.dev/) and should be useful for bo
 
 You can import Trealla directly from a CDN that supports ECMAScript Modules.
 
-For now, it's best to pin a version as in: `https://esm.run/trealla@0.12.0`.
+For now, it's best to pin a version as in: `https://esm.run/trealla@X.Y.Z`.
 
 It seems like esm.sh is having some trouble at the moment ([issue #19](https://github.com/guregu/trealla-js/issues/19))
 
@@ -45,7 +45,7 @@ import { load, Prolog } from 'trealla';
 
 ```html
 <script type="module">
-import { load, Prolog } from 'https://esm.run/trealla';
+import { Prolog, load, atom } from 'https://esm.run/trealla';
 
 // Load the runtime.
 // This is requred before construction of any interpreters.
@@ -61,6 +61,14 @@ const query = pl.query('between(2, 10, X), Y is X^2, format("(~w,~w)~n", [X, Y])
 for await (const answer of query) {
   console.log(answer);
 }
+
+// Use the bind option to easily bind variables.
+// You can bind strings as-is.
+// Atoms can be quickly constructed with the atom template tag.
+// See: Term type.
+const greeting = await pl.queryOnce('format("hello ~a", [X])', {bind: {X: atom`world`}});
+console.log(greeting.stdout); // "hello world"
+console.log(greeting.answer.X); // Atom { functor: "world" }
 </script>
 ```
 
@@ -189,6 +197,8 @@ declare module 'trealla' {
   }
 
   interface QueryOptions {
+    // Mapping of variables to bind in the query.
+    bind?: Substitution;
     // Prolog program text to evaluate before the query.
     program?: string | Uint8Array;
     // Answer format. This changes the return type of the query generator.
@@ -224,41 +234,52 @@ declare module 'trealla' {
   // Answer for the "json" format.
   interface Answer {
     result: "success" | "failure" | "error";
-    answer?: Solution;
+    answer?: Substitution;
     error?: Term;
     stdout?: string; // standard output text (user_output in Prolog)
     stderr?: string; // standard error text (user_error in Prolog)
   }
 
   // Mapping of variable name → Term substitutions.
-  type Solution = Record<string, Term>;
+  type Substitution = Record<string, Term>;
 
   /*
     Default encoding (in order of priority):
-    string(X)   → string
-    is_list(X)  → List
-    atom(X)     → Atom
+    string(X) 	→ string
+    is_list(X)	→ List
+    atom(X) 	→ Atom
     compound(X) → Compound
-    number(X)   → number
-    var(X)      → Variable
+    number(X) 	→ number
+    var(X) 		→ Variable
   */
   type Term = Atom | Compound | Variable | List | string | number;
 
-  interface Atom {
+  type List = Term[];
+
+  class Atom {
     functor: string;
+    readonly pi: string;
+    toProlog(): string;
   }
 
-  interface Compound {
+  // String template literal: atom`foo` = 'foo'.
+  function atom([functor]): Atom;
+
+  class Compound {
     functor: string;
     args: List;
+    readonly pi: string;
+    toProlog(): string;
   }
 
-  interface Variable {
+  class Variable {
     var: string; // variable name
     attr?: List; // residual goals
+    toProlog(): string;
   }
 
-  type List = Term[];
+  // Convert Prolog Term objects to their text representation.
+  function toProlog(object: Term): string;
 
   const FORMATS: {
     json: Toplevel<Answer, JSONEncodingOptions>,
@@ -269,7 +290,7 @@ declare module 'trealla' {
 
   interface Toplevel<T, Options> {
     // Prepare query string, returns goal to execute.
-    query(pl: Prolog, goal: string, options?: Options): string;
+    query(pl: Prolog, goal: string, bind?: Substitution, options?: Options): string;
     // Parse stdout and return an answer.
     parse(pl: Prolog, status: boolean, stdout: Uint8Array, stderr: Uint8Array, options?: Options): T;
     // Yield simple truth value, when output is blank.

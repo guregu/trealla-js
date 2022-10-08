@@ -1,13 +1,19 @@
+import { toProlog, escapeString, Atom, Compound, Variable } from './term';
+
 export const FORMATS = {
 	json: {
-		query: function(_, query) {
-			return `js_ask("${escapeString(query)}").`;
+		query: function(_, query, bind) {
+			if (bind) query = bindVars(query, bind);
+			return `js_ask(${escapeString(query)}).`;
 		},
 		parse: parseJSON,
 		truth: function() { return null; }
 	},
 	prolog: {
-		query: function(_, query) { return query },
+		query: function(_, query, bind) {
+			if (bind) query = bindVars(query, bind);
+			return query;
+		},
 		parse: function(_, _status, stdout, stderr, opts) {
 			const dec = new TextDecoder();
 			if (stderr.byteLength > 0) {
@@ -26,6 +32,12 @@ export const FORMATS = {
 		}
 	}
 };
+
+function bindVars(query, bind) {
+	const vars = Object.entries(bind).map(([k, v]) => `${k} = ${toProlog(v)}`).join(", ");
+	if (vars.length === 0) return query;
+	return `${vars}, ${query}`;
+}
 
 function parseJSON(_pl, _status, stdout, stderr, opts) {
 	const dec = new TextDecoder();
@@ -47,8 +59,8 @@ function parseJSON(_pl, _status, stdout, stderr, opts) {
 	return msg;
 }
 
-function reviver(opts) {
-	if (!opts) return undefined;
+function reviver(opts = {}) {
+	// if (!opts) return undefined;
 	const { atoms, strings, booleans, nulls, undefineds } = opts;
 	return function(k, v) {
 		if (typeof v === "object" && typeof v.functor === "string") {
@@ -57,8 +69,8 @@ function reviver(opts) {
 				switch (atoms) {
 				case "string":
 					return v.functor;
-				case "object":
-					return v;
+				default:
+					return new Atom(v.functor);
 				}
 			}
 			if ((booleans || nulls || undefineds) &&  typeof v === "object" && v.args?.length === 1) {
@@ -81,6 +93,11 @@ function reviver(opts) {
 					return undefined;
 				}
 			}
+			// compounds
+			return new Compound(v.functor, v.args);
+		}
+		if (typeof v === "object" && typeof v.var === "string") {
+			return new Variable(v.var, v.attr);
 		}
 		// strings
 		if (typeof v === "string" && k !== "result" && k !== "output") {
@@ -93,10 +110,4 @@ function reviver(opts) {
 		}
 		return v;
 	}
-}
-
-function escapeString(query) {
-	query = query.replaceAll("\\", "\\\\");
-	query = query.replaceAll(`"`, `\\"`);
-	return query;
 }
