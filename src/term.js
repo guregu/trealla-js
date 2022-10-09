@@ -36,6 +36,8 @@ export class Variable {
 	var;
 	attr;
 	constructor(name, attr) {
+		if (!validVar(name))
+			throw new Error("trealla: invalid variable name: " + name);
 		this.var = name;
 		this.attr = attr?.length > 0 ? attr : undefined;
 	}
@@ -46,6 +48,16 @@ export class Variable {
 		return `${this.var}`;
 	}
 	toString() { return this.toProlog(); }
+}
+
+function validVar(name) {
+	if (typeof name !== "string" || name.length === 0)
+		return false;
+	if (name[0] === "_")
+		return true;
+	if (name[0].toLowerCase() !== name[0])
+		return true;
+	return false;
 }
 
 /** Converts the given term object into Prolog text. */
@@ -61,15 +73,11 @@ export function toProlog(obj) {
 }
 
 export function escapeAtom(atom) {
-	atom = atom.replaceAll("\\", "\\\\");
-	atom = atom.replaceAll(`'`, `\\'`);
-	return `'${atom}'`;
+	return `'${atom.replaceAll("\\", "\\\\").replaceAll(`'`, `\\'`)}'`;
 }
 
 export function escapeString(str) {
-	str = str.replaceAll("\\", "\\\\");
-	str = str.replaceAll(`"`, `\\"`);
-	return `"${str}"`;
+	return `"${str.replaceAll("\\", "\\\\").replaceAll(`"`, `\\"`)}"`;
 }
 
 export function fromJSON(json, options) {

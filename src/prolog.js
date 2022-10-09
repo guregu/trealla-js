@@ -102,8 +102,10 @@ export class Prolog {
 			await this.consultText(program);
 		}
 
+		// standard WASI exports (from wasi.c)
 		const realloc = this.instance.exports.canonical_abi_realloc;
 		const free = this.instance.exports.canonical_abi_free;
+		// exports from trealla.h
 		const pl_query = this.instance.exports.pl_query;
 		const pl_redo = this.instance.exports.pl_redo;
 		const pl_done = this.instance.exports.pl_done;
@@ -111,14 +113,14 @@ export class Prolog {
 		const query_did_yield = this.instance.exports.query_did_yield;
 
 		const goalstr = new CString(this.instance, toplevel.query(this, goal, bind, encode));
-		const subq_ptr = realloc(0, 0, ALIGN, PTRSIZE); // pl_sub_query**
+		const subqptr = realloc(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
 		let finalizing = false;
 
 		try {
-			const ok = pl_query(this.ptr, goalstr.ptr, subq_ptr);
+			const ok = pl_query(this.ptr, goalstr.ptr, subqptr);
 			goalstr.free();
-			task.subquery = indirect(this.instance, subq_ptr); // pl_sub_query*
-			free(subq_ptr, PTRSIZE, 1);
+			task.subquery = indirect(this.instance, subqptr); // pl_sub_query*
+			free(subqptr, PTRSIZE, 1);
 			do {
 				if (this.finalizers && task.alive && !finalizing) {
 					this.finalizers.register(token, task);

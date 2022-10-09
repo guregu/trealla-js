@@ -107,7 +107,7 @@ declare module 'trealla' {
 		toProlog(): string;
 	}
 
-	// String template literal: atom`foo` = 'foo'.
+	// String template literal for making atoms: atom`foo` = 'foo'.
 	function atom([functor]): Atom;
 
 	class Compound {
@@ -125,8 +125,9 @@ declare module 'trealla' {
 
 	// Convert Term objects to their Prolog text representation.
 	function toProlog(object: Term): string;
+
 	// Parse JSON representations of terms.
-	function fromJSON(json: string): Term;
+	function fromJSON(json: string, options?: JSONEncodingOptions): Term;
 
 	const FORMATS: {
 		json: Toplevel<Answer, JSONEncodingOptions>,
