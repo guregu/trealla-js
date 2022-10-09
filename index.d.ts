@@ -1,16 +1,29 @@
 declare module 'trealla' {
-  // Call this first to load the runtime.
+	// Call this first to load the runtime.
+	// Must be called before any interpreters are constructed.
 	function load(): Promise<void>;
 
+	// Prolog interpreter.
+	// Each interpreter is independent, having its own knowledgebase and virtual filesystem.
+	// Multiple queries can be run against one interpreter simultaneously.
 	class Prolog {
 		constructor(options?: PrologOptions);
 
+		// Run a query. This is an asynchronous generator function.
+		// Use a `for await` loop to easily iterate through results.
+		// Exiting the loop will automatically destroy the query and reclaim memory.
+		// If manually iterating with `next()`, call the `return()` method of the generator to kill it early.
+		// Runtimes that support finalizers will make a best effort attempt to kill live but garbage-collected queries.
 		public query<T = Answer>(goal: string, options?: QueryOptions): AsyncGenerator<T, void, void>;
+		// Runs a query and returns a single solution, ignoring others.
 		public queryOnce<T = Answer>(goal: string, options?: QueryOptions): Promise<T>;
 
+		// Consult (load) a Prolog file with the given filename.
 		public consult(filename: string): Promise<void>;
+		// Consult (load) a Prolog file with the given text content.
 		public consultText(text: string | Uint8Array): Promise<void>;
 		
+		// Use fs to manipulate the virtual filesystem.
 		public readonly fs: any; // wasmer-js filesystem
 	}
 
@@ -49,6 +62,7 @@ declare module 'trealla' {
 		atoms?: "string" | "object";
 		// Encoding for Prolog strings. Default is "string".
 		strings?: "string" | "list";
+
 		// Functor for compounds of arity 1 to be converted to booleans/null/undefined.
 		// e.g. "{}" to turn {true} into true ala Tau, "@" for SWI-ish behavior.
 		booleans?: string;
@@ -67,8 +81,8 @@ declare module 'trealla' {
 		result: "success" | "failure" | "error";
 		answer?: Substitution;
 		error?: Term;
-		stdout?: string; // standard output text (user_output in Prolog)
-		stderr?: string; // standard error text (user_error in Prolog)
+		stdout?: string; // standard output text (user_output stream in Prolog)
+		stderr?: string; // standard error text (user_error stream in Prolog)
 	}
 
 	// Mapping of variable name → Term substitutions.
@@ -89,7 +103,7 @@ declare module 'trealla' {
 
 	class Atom {
 		functor: string;
-		readonly pi: string;
+		readonly pi: string; // predicate indicator ("foo/0")
 		toProlog(): string;
 	}
 
@@ -99,7 +113,7 @@ declare module 'trealla' {
 	class Compound {
 		functor: string;
 		args: List;
-		readonly pi: string;
+		readonly pi: string; // predicate indicator ("foo/N")
 		toProlog(): string;
 	}
 
@@ -109,7 +123,7 @@ declare module 'trealla' {
 		toProlog(): string;
 	}
 
-	// Convert Prolog Term objects to their text representation.
+	// Convert Term objects to their Prolog text representation.
 	function toProlog(object: Term): string;
 
 	const FORMATS: {

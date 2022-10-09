@@ -182,7 +182,7 @@ export class Prolog {
 		}
 	}
 
-	/** Consult (load) a Prolog file with the given filename.
+	/** Consult (load) a Prolog file with the given text content.
 	 *	Use fs to manipulate the filesystem. */
 	async consult(filename) {
 		if (!this.instance) await this.init()
