@@ -71,3 +71,59 @@ export function escapeString(str) {
 	str = str.replaceAll(`"`, `\\"`);
 	return `"${str}"`;
 }
+
+export function fromJSON(json, options) {
+	return JSON.parse(json, reviver(options));
+};
+
+export function reviver(opts = {}) {
+	const { atoms, strings, booleans, nulls, undefineds } = opts;
+	return function(k, v) {
+		if (typeof v === "object" && typeof v.functor === "string") {
+			// atoms
+			if (!v.args || v.args.length === 0) {
+				switch (atoms) {
+				case "string":
+					return v.functor;
+				default:
+					return new Atom(v.functor);
+				}
+			}
+			if ((booleans || nulls || undefineds) &&  typeof v === "object" && v.args?.length === 1) {
+				const atom = typeof v.args[0] === "string" ? v.args[0] : v.args[0].functor;
+				// booleans
+				if (v.functor === booleans) {
+					switch (atom) {
+					case "true":
+						return true;
+					case "false":
+						return false;
+					}
+				}
+				// nulls
+				if (v.functor === nulls && atom === "null") {
+					return null;
+				}
+				// undefineds
+				if (v.functor === undefineds && atom === "undefined") {
+					return undefined;
+				}
+			}
+			// compounds
+			return new Compound(v.functor, v.args);
+		}
+		if (typeof v === "object" && typeof v.var === "string") {
+			return new Variable(v.var, v.attr);
+		}
+		// strings
+		if (typeof v === "string" && k !== "result" && k !== "stdin" && k !== "stdout") {
+			switch (strings) {
+			case "list":
+				return v.split("").map(char => new Atom(char));
+			case "string":
+				return v;
+			}
+		}
+		return v;
+	}
+}

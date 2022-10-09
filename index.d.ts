@@ -125,6 +125,8 @@ declare module 'trealla' {
 
 	// Convert Term objects to their Prolog text representation.
 	function toProlog(object: Term): string;
+	// Parse JSON representations of terms.
+	function fromJSON(json: string): Term;
 
 	const FORMATS: {
 		json: Toplevel<Answer, JSONEncodingOptions>,
