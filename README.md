@@ -16,15 +16,13 @@ Trealla is built targeting [WASI](https://wasi.dev/) and should be useful for bo
 
 You can import Trealla directly from a CDN that supports ECMAScript Modules.
 
-For now, it's best to pin a version as in: `https://esm.run/trealla@X.Y.Z`.
-
-It seems like esm.sh is having some trouble at the moment ([issue #19](https://github.com/guregu/trealla-js/issues/19))
+For now, it's best to pin a version as in: `https://esm.sh/trealla@X.Y.Z`.
 
 ```js
+import { load, Prolog } from 'https://esm.sh/trealla';
 import { load, Prolog } from 'https://esm.run/trealla';
 import { load, Prolog } from 'https://unpkg.com/trealla';
 import { load, Prolog } from 'https://cdn.skypack.dev/trealla';
-// import { load, Prolog } from 'https://esm.sh/trealla';
 ```
 
 ### NPM
@@ -45,7 +43,7 @@ import { load, Prolog } from 'trealla';
 
 ```html
 <script type="module">
-import { Prolog, load, atom } from 'https://esm.run/trealla';
+import { Prolog, load, atom } from 'https://esm.sh/trealla';
 
 // Load the runtime.
 // This is requred before construction of any interpreters.
@@ -124,7 +122,7 @@ This is not necessary if you iterate through until it is finished.
 
 You can change the output format with the `format` option in queries.
 
-The format is `"json"` by default which goes through `library(js_toplevel)` and returns JSON objects.
+The format is `"json"` by default which goes through `library(js)` and returns JSON objects.
 
 ### `"prolog"` format
 
