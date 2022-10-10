@@ -139,7 +139,7 @@ export class Prolog {
 						thunk.value = await thunk.promise;
 					} catch (err) {
 						// TODO: better format for this
-						thunk.value = {error: `${err}`};
+						thunk.value = {"$error": `${err}`};
 					}
 					thunk.done = true;
 					continue;
@@ -250,7 +250,7 @@ export class Prolog {
 			result = replyMsg(x);
 		} catch(error) {
 			console.error(error);
-			result = JSON.stringify({error: `${error}`});
+			result = JSON.stringify({"$error": `${error}`});
 		}
 		const reply = new CString(this.instance, result);
 		writeUint32(this.instance, replysizeptr, reply.size-1);
@@ -273,7 +273,7 @@ export class Prolog {
 			result = replyMsg(x);
 		} catch(error) {
 			console.error(error);
-			result = JSON.stringify({error: `${error}`});
+			result = JSON.stringify({"$error": `${error}`});
 		}
 		const reply = new CString(this.instance, result);
 		writeUint32(this.instance, replysizeptr, reply.size-1);

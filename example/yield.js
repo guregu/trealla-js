@@ -13,3 +13,6 @@ for await (const answer of pl.query(`js_eval_json("return new Promise(() => { th
 };
 
 console.log(await pl.queryOnce(`js_eval("return new TextEncoder().encode('arbitrary text');", Result)`, {format: "prolog"}));
+
+// expect: error(js_error("ReferenceError: should_throw_a_js_error is not defined"),js_eval/1).
+console.log(await pl.queryOnce(`js_eval("should_throw_a_js_error")`, {format: "prolog"}));
