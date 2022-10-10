@@ -88,6 +88,14 @@ export function fromJSON(json, options) {
 	return JSON.parse(json, reviver(options));
 };
 
+export function toJSON(term, indent) {
+	return JSON.stringify(term, function(_, v) {
+		if (typeof v === "bigint")
+			return {number: v.toString()};
+		return v;
+	}, indent)
+}
+
 export function reviver(opts = {}) {
 	const { atoms, strings, booleans, nulls, undefineds } = opts;
 	return function(k, v) {

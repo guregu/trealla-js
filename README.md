@@ -302,6 +302,9 @@ declare module 'trealla' {
   // Parse JSON representations of terms.
   function fromJSON(json: string, options?: JSONEncodingOptions): Term;
 
+  // Convert Term objects to JSON text.
+  function toJSON(term: Term, indent?: string): string;
+
   const FORMATS: {
     json: Toplevel<Answer, JSONEncodingOptions>,
     prolog: Toplevel<string, PrologEncodingOptions>,

@@ -1,7 +1,7 @@
 // quick & dirty test for local nodejs usage
 // should work the same in browsers too
 
-import { load, Prolog, atom, Compound } from '../trealla.js';
+import { load, Prolog, atom, Compound, toJSON } from '../trealla.js';
 
 await load();
 
@@ -131,7 +131,9 @@ const greeting = await pl.queryOnce('format("hello ~a", [X])', {bind: {X: atom`w
 console.log(greeting.stdout); // "hello world"
 
 // bigint
-console.dir(await pl.queryOnce("X=9999999999999999, Y = -9999999999999999, Z = 123", {format: "json"}), {depth: null});
+const thicc = await pl.queryOnce("X=9999999999999999, Y = -9999999999999999, Z = 123", {format: "json"});
+console.dir(thicc, {depth: null});
+console.log(toJSON(thicc));
 
 
 async function dumpQuery(query) {
