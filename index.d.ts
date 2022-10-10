@@ -22,7 +22,7 @@ declare module 'trealla' {
 		public consult(filename: string): Promise<void>;
 		// Consult (load) a Prolog file with the given text content.
 		public consultText(text: string | Uint8Array): Promise<void>;
-		
+
 		// Use fs to manipulate the virtual filesystem.
 		public readonly fs: any; // wasmer-js filesystem
 	}
@@ -94,10 +94,11 @@ declare module 'trealla' {
 		is_list(X)	→ List
 		atom(X) 	→ Atom
 		compound(X) → Compound
+		integer(X)  → BigInt if necessary
 		number(X) 	→ number
 		var(X) 		→ Variable
 	*/
-	type Term = Atom | Compound | Variable | List | string | number;
+	type Term = Atom | Compound | Variable | List | string | number | BigInt;
 
 	type List = Term[];
 

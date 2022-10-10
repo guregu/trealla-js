@@ -39,17 +39,19 @@ export class Variable {
 		if (!validVar(name))
 			throw new Error("trealla: invalid variable name: " + name);
 		this.var = name;
-		this.attr = attr?.length > 0 ? attr : undefined;
+		if (attr?.length > 0)
+			this.attr = attr;
 	}
 	toProlog() {
 		if (this.attr?.length > 0) {
-			return this.attr.map(x => x.toProlog()).join(",");
+			return this.attr.map(toProlog).join(",");
 		}
 		return `${this.var}`;
 	}
 	toString() { return this.toProlog(); }
 }
 
+// TODO: this doesn't check for symbols, spaces, etc.
 function validVar(name) {
 	if (typeof name !== "string" || name.length === 0)
 		return false;
@@ -72,6 +74,8 @@ export function toProlog(obj) {
 	throw new Error("trealla: can't convert object to Prolog term: " + obj);
 }
 
+// TODO: might be nice if escapeAtom could avoid the quoting when it can,
+// but it is easier to just quote everything.
 export function escapeAtom(atom) {
 	return `'${atom.replaceAll("\\", "\\\\").replaceAll(`'`, `\\'`)}'`;
 }
@@ -122,6 +126,9 @@ export function reviver(opts = {}) {
 		}
 		if (typeof v === "object" && typeof v.var === "string") {
 			return new Variable(v.var, v.attr);
+		}
+		if (typeof v === "object" && typeof v.number === "string") {
+			return BigInt(v.number);
 		}
 		// strings
 		if (typeof v === "string" && k !== "result" && k !== "stdin" && k !== "stdout") {

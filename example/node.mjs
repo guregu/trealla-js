@@ -130,6 +130,10 @@ for (const [k, v] of Object.entries(got)) {
 const greeting = await pl.queryOnce('format("hello ~a", [X])', {bind: {X: atom`world`}});
 console.log(greeting.stdout); // "hello world"
 
+// bigint
+console.dir(await pl.queryOnce("X=9999999999999999, Y = -9999999999999999, Z = 123", {format: "json"}), {depth: null});
+
+
 async function dumpQuery(query) {
   for await (const answer of query) {
     console.log(answer);

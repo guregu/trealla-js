@@ -266,10 +266,11 @@ declare module 'trealla' {
     is_list(X)  → List
     atom(X)     → Atom
     compound(X) → Compound
+    integer(X)  → BigInt if necessary
     number(X)   → number
     var(X)      → Variable
   */
-  type Term = Atom | Compound | Variable | List | string | number;
+  type Term = Atom | Compound | Variable | List | string | number | BigInt;
 
   type List = Term[];
 
