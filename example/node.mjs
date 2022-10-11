@@ -135,6 +135,7 @@ const thicc = await pl.queryOnce("X=9999999999999999, Y = -9999999999999999, Z =
 console.dir(thicc, {depth: null});
 console.log(toJSON(thicc));
 
+console.dir(await pl.queryOnce("throw(test).", {format: "json"}), {depth: null});
 
 async function dumpQuery(query) {
   for await (const answer of query) {
