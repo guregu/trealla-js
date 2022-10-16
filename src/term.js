@@ -99,14 +99,15 @@ export function toJSON(term, indent) {
 export function reviver(opts = {}) {
 	const { atoms, strings, booleans, nulls, undefineds } = opts;
 	return function(k, v) {
-		if (typeof v === "object" && typeof v.functor === "string") {
+		if (typeof v === "object" && typeof v.functor !== "undefined") {
+			const functor = (Array.isArray(v.functor) && v.functor.length === 0) ? "" : v.functor;
 			// atoms
 			if (!v.args || v.args.length === 0) {
 				switch (atoms) {
 				case "string":
-					return v.functor;
+					return functor;
 				default:
-					return new Atom(v.functor);
+					return new Atom(functor);
 				}
 			}
 			if ((booleans || nulls || undefineds) &&  typeof v === "object" && v.args?.length === 1) {
@@ -130,7 +131,7 @@ export function reviver(opts = {}) {
 				}
 			}
 			// compounds
-			return new Compound(v.functor, v.args);
+			return new Compound(functor, v.args);
 		}
 		if (typeof v === "object" && typeof v.var === "string") {
 			return new Variable(v.var, v.attr);

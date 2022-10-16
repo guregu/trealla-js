@@ -137,6 +137,8 @@ console.log(toJSON(thicc));
 
 console.dir(await pl.queryOnce("throw(test).", {format: "json"}), {depth: null});
 
+console.dir(await pl.queryOnce("X = foo(a, '').", {format: "json"}), {depth: null});
+
 async function dumpQuery(query) {
   for await (const answer of query) {
     console.log(answer);
