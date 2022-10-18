@@ -103,6 +103,7 @@ declare module 'trealla' {
 	type List = Term[];
 
 	class Atom {
+		constructor(functor: string);
 		functor: string;
 		readonly pi: string; // predicate indicator ("foo/0")
 		toProlog(): string;
@@ -112,6 +113,7 @@ declare module 'trealla' {
 	function atom([functor]): Atom;
 
 	class Compound {
+		constructor(functor: string, args: List);
 		functor: string;
 		args: List;
 		readonly pi: string; // predicate indicator ("foo/N")
@@ -119,6 +121,7 @@ declare module 'trealla' {
 	}
 
 	class Variable {
+		constructor(name: string, attr: List);
 		var: string; // variable name
 		attr?: List; // residual goals
 		toProlog(): string;

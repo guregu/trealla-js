@@ -295,7 +295,7 @@ function replyMsg(x) {
 }
 
 function newWASI(library, env, quiet) {
-	const args = ["tpl", "--ns", "-g", "halt"];
+	const args = ["tpl", "--ns", "-g", "use_module(user), halt"];
 	if (library) args.push("--library", library);
 	if (quiet) args.push("-q");
 
