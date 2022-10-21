@@ -328,9 +328,48 @@ declare module 'trealla' {
 
 # Predicate reference
 
-## library(js)
+trealla-js includes [all libraries bundled with Trealla](https://github.com/guregu/trealla/tree/main/library).
+Import a library module with the `use_module(library(Name))` directive or predicate.
 
-Module `library(js)` is autoloaded. It provides predicates for calling into the host.
+The predicates described below are imported by default.
+
+## Specialized built-ins
+
+These predicates are Trealla built-ins specialized for a Javascript execution environment.
+
+### crypto_data_hash/3
+
+Hashes the given string and options. Calls into the global [`crypto`][https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest] object.
+
+```prolog
+%! crypto_data_hash(+Data, -Hash, +Options) is det.
+%  Unifies Hash with a hashed hex string representation of Data, which is a string.
+%  Options is a list of options:
+%  - algorithm(Algorithm): Algorithm is an atom representing the hash algorithm to use.
+%    One of: sha256 (default), sha386, sha512, sha1 (insecure).
+crypto_data_hash(Data, Hash, Options).
+```
+
+This will only work in secure contexts (i.e. over HTTPS) in browsers. Node users may need to set the global crypto object.
+
+```js
+import crypto from "node:crypto";
+globalThis.crypto = crypto;
+```
+
+### sleep/1
+
+Sleeps for the given amount of seconds. This yields to the host, unblocking the main thread for the duration.
+
+```prolog
+%! sleep(+N) is det.
+%  Sleep for N seconds. N is an integer.
+sleep(Seconds).
+```
+
+## library(wasm_js)
+
+Module `library(wasm_js)` is autoloaded. It provides predicates for calling into the host.
 
 ### http_consult/1
 
@@ -360,7 +399,7 @@ js_fetch(URL, Options, Content).
 
 ### js_eval_json/2
 
-Evaluate a string of Javascript code.
+Evaluate a string of Javascript code. Code is evaluated using [`Function`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/Function) and only has access to the global envrionment.
 
 ```prolog
 %! js_eval_json(+Code, -JSON) is det.
@@ -422,7 +461,7 @@ json_value(JSON, Value).
 ## Implementation Details
 
 Currently uses the WASM build from [guregu/trealla](https://github.com/guregu/trealla).
-Output goes through the [`js`](https://github.com/guregu/trealla/blob/main/library/js.pl) module.
+JSON output goes through the [`wasm`](https://github.com/guregu/trealla/blob/main/library/wasm.pl) module.
 
 ### Development
 
