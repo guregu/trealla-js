@@ -127,7 +127,7 @@ This is not necessary if you iterate through until it is finished.
 
 You can change the output format with the `format` option in queries.
 
-The format is `"json"` by default which goes through `library(js)` and returns JSON objects.
+The format is `"json"` by default which goes through `library(js)` and returns JSON-friendly Javascript objects (see: type `Term`).
 
 ### `"prolog"` format
 
@@ -275,6 +275,7 @@ declare module 'trealla' {
   type List = Term[];
 
   class Atom {
+    constructor(functor: string);
     functor: string;
     readonly pi: string; // predicate indicator ("foo/0")
     toProlog(): string;
@@ -284,6 +285,7 @@ declare module 'trealla' {
   function atom([functor]): Atom;
 
   class Compound {
+    constructor(functor: string, args: List);
     functor: string;
     args: List;
     readonly pi: string; // predicate indicator ("foo/N")
@@ -291,6 +293,7 @@ declare module 'trealla' {
   }
 
   class Variable {
+    constructor(name: string, attr: List);
     var: string; // variable name
     attr?: List; // residual goals
     toProlog(): string;
