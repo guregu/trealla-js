@@ -339,7 +339,7 @@ These predicates are Trealla built-ins specialized for a Javascript execution en
 
 ### crypto_data_hash/3
 
-Hashes the given string and options. Calls into the global [`crypto`][https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest] object.
+Hashes the given string and options. Calls into the global [`crypto`](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest) object.
 
 ```prolog
 %! crypto_data_hash(+Data, -Hash, +Options) is det.
