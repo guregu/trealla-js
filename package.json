@@ -1,6 +1,6 @@
 {
   "name": "trealla",
-  "version": "0.13.33",
+  "version": "0.13.34",
   "description": "Trealla Prolog bindings for JS",
   "main": "trealla.js",
   "type": "module",
@@ -35,7 +35,7 @@
   },
   "homepage": "https://github.com/guregu/trealla-js#readme",
   "dependencies": {
-    "@wasmer/wasi": "^1.1.2"
+    "@wasmer/wasi": "^1.2.0"
   },
   "devDependencies": {
     "esbuild": "^0.15.10",
