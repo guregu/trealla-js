@@ -106,7 +106,7 @@ If your evaluated code returns a promise, Prolog will yield to the host to evalu
 Hopefully this should be transparent to the user.
 
 ```prolog
-?- js_eval_json("fetch('http://example.com').then(x => x.text());", Src).
+?- js_eval_json("return fetch('http://example.com').then(x => x.text());", Src).
    Src = "<html><head><title>Example page..."
 ```
 
