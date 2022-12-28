@@ -139,6 +139,18 @@ console.dir(await pl.queryOnce("throw(test).", {format: "json"}), {depth: null})
 
 console.dir(await pl.queryOnce("X = foo(a, '').", {format: "json"}), {depth: null});
 
+// json parsing/generating
+await dumpQuery(
+  pl.query(`json_chars(X, "{\\"abc\\":-1, \\"foo\\":-555}").`, {
+    format: "prolog"
+  })
+);
+await dumpQuery(
+  pl.query(`write_term_to_chars("\\x3\\", [json(true)], Cs).`, {
+    format: "prolog"
+  })
+);
+
 async function dumpQuery(query) {
   for await (const answer of query) {
     console.log(answer);
