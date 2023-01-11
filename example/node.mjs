@@ -145,6 +145,7 @@ await dumpQuery(
     format: "prolog"
   })
 );
+
 await dumpQuery(
   pl.query(`write_term_to_chars("\\x3\\", [json(true)], Cs).`, {
     format: "prolog"
