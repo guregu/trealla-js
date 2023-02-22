@@ -3,7 +3,7 @@ import { load, Prolog } from '../trealla.js';
 // Node needs the global crypto object defined.
 // Exists already in browsers.
 import crypto from 'node:crypto';
-globalThis.crypto = crypto;
+if (!globalThis.crypto) globalThis.crypto = crypto;
 
 await load();
 
@@ -21,7 +21,7 @@ console.dir(
 	`, format: "prolog"}), {depth: null});
 
 console.dir(
-	await pl.queryOnce(`js_fetch("https://httpbin.org/post", Content, [as(json), body({"hello": "world"}), method(post), headers([foo-bar])]), write(Content), nl.`, {format: "prolog"}),
+	await pl.queryOnce(`http_fetch("https://httpbin.org/post", Content, [as(json), body({"hello": "world"}), method(post), headers([foo-bar])]), write(Content), nl.`, {format: "prolog"}),
 	{depth: null});
 
 console.dir(

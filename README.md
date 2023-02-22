@@ -384,12 +384,12 @@ Load Prolog code from URL.
 http_consult(URL).
 ```
 
-### js_fetch/3
+### http_fetch/3
 
 Fetch content from a URL.
 
 ```prolog
-%! js_fetch(+URL, +Options, -Content) is det.
+%! http_fetch(+URL, +Options, -Content) is det.
 %  Fetch URL (string) and unify the result with Content.
 %  This is a friendly wrapper around Javascript's fetch API.
 %  Options is a list of options:
@@ -397,7 +397,7 @@ Fetch content from a URL.
 %  - as(json): Content will be parsed as JSON and unified with a JSON term
 %  - headers(["key"-"value", ...]): HTTP headers to send
 %  - body(Cs): body to send (Cs is string)
-js_fetch(URL, Options, Content).
+http_fetch(URL, Options, Content).
 ```
 
 ### js_eval_json/2
