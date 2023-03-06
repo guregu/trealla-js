@@ -53,6 +53,8 @@ declare module 'trealla' {
 		format?: keyof typeof FORMATS | Toplevel<any, any>;
 		/** Encoding options for "json" or custom formats. */
 		encode?: EncodingOptions;
+		/** Automatic yield interval in milliseconds. Default is 20ms. */
+		autoyield?: number;
 	}
 
 	type EncodingOptions = JSONEncodingOptions | PrologEncodingOptions | Record<string, unknown>;

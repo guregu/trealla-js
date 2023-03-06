@@ -80,7 +80,8 @@ export class Prolog {
 			bind,
 			program, 			// Prolog text to consult before running query
 			format = "json", 	// Format (toplevel) selector
-			encode				// Options passed to toplevel
+			encode,				// Options passed to toplevel
+			autoyield = 20		// Yield interval, milliseconds
 		} = options;
 
 		goal = goal.replaceAll("\n", " ");
@@ -115,6 +116,7 @@ export class Prolog {
 		const goalstr = new CString(this.instance, toplevel.query(this, goal, bind, encode));
 		const subqptr = realloc(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
 		let finalizing = false;
+		let lastYield = 0;
 
 		try {
 			const ok = pl_query(this.ptr, goalstr.ptr, subqptr);
@@ -133,6 +135,11 @@ export class Prolog {
 					if (!thunk) {
 						// guest yielded without having called '$host_call'/2
 						// TODO: is it useful to attempt to process the output here?
+						let now;
+						if (autoyield > 0 && (now = Date.now()) - lastYield > autoyield) {
+							lastYield = now;
+							await new Promise(resolve => setTimeout(resolve, 0));
+						}
 						continue
 					}
 					try {
