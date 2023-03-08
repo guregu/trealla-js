@@ -20,6 +20,13 @@ pl.fs.open("/greeting.pl", { write: true, create: true }).writeString(`
   :- dynamic(hello/1).
   hello(world).
   hello(世界).
+
+
+fib_hell(0, R) :- !, R=1, mysleep.
+fib_hell(1, R) :- !, R=1, mysleep.
+fib_hell(N, R) :- M is N-1, fib_hell(M, A), L is M-1, fib_hell(L, B), R is A+B.
+
+mysleep :- js_eval("return new Promise((resolve => setImmediate(resolve)));", _).
 `);
 
 // custom library we can load from the use_module(library(...)) directive
@@ -32,7 +39,8 @@ pl.fs.open("/lib/test.pl", { write: true, create: true }).writeString(`library(o
 await pl.consult("greeting");
 
 // assert some dynamic facts
-console.log(await pl.queryOnce("assertz(lang(prolog)), greeting:assertz(hello('Welt'))."));
+console.log(await pl.queryOnce("time(fib_hell(29, _))."));
+// console.log(await pl.queryOnce("assertz(lang(prolog)), greeting:assertz(hello('Welt'))."));
 // { result: 'success', answer: {}, output: '' } // as in the regular toplevel's "true."
 
 // run a query on the file we loaded and facts we asserted
