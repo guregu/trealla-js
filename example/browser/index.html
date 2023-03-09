@@ -10,11 +10,9 @@
 		#result:empty {
 			display: none;
 		}
-	</style>
-	<!-- animated background for testing auto-yield -->
-	<!--
-	<style>
-	body {
+
+	/* animated background for testing auto-yield */
+	body:target {
 		animation-name: rainbow;
 		animation-duration: 5s;
 		animation-iteration-count: infinite;
@@ -22,7 +20,6 @@
 		animation-timing-function: linear; 
 		/* linear is enabled default, it’s not necessary to add it make it work but it can make your code more expressive */
 	}
-
 	@keyframes rainbow {
 		0% {
 			background: #ee6055;
@@ -41,9 +38,8 @@
 		}
 	}
 	</style>
-	-->
 </head>
-<body>
+<body id="yield">
 <h2>Trealla Sandbox</h2>
 
 <form onsubmit="return ask(), false;">
@@ -61,7 +57,8 @@ fib(N, R) :- M is N-1, fib(M, A), L is M-1, fib(L, B), R is A+B.
 <pre id="result"></pre>
 
 <h3>Tinker</h3>
-<button onclick="return resetProlog(),false;">Reset Interpreter</button>
+<button onclick="return resetProlog(),false;">Reset Interpreter</button> <br>
+<a href="#yield">Groovy mode</a>
 
 <script type="module">
 // import { load, Prolog } from 'https://esm.sh/trealla';
@@ -79,7 +76,7 @@ window.ask = async function ask() {
 	const query = document.getElementById("query");
 	const src = document.getElementById("src");
 	const result = document.getElementById("result");
-	result.textContent = "";
+	result.innerHTML = "<progress></progress>";
 	console.time("query");
 	let text = "";
 	for await (const msg of pl.query(query.value, {program: src.value})) {
