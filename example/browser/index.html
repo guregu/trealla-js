@@ -48,12 +48,12 @@
 
 <form onsubmit="return ask(), false;">
 	<textarea cols=80 rows=20 id="src">
-fib_hell(0, R) :- !, R=1, true.
-fib_hell(1, R) :- !, R=1, true.
-fib_hell(N, R) :- M is N-1, fib_hell(M, A), L is M-1, fib_hell(L, B), R is A+B.
+fib(0, R) :- !, R=1.
+fib(1, R) :- !, R=1.
+fib(N, R) :- M is N-1, fib(M, A), L is M-1, fib(L, B), R is A+B.
 	</textarea>
 	<br>
-	<input type="text" style="width: 74ch" value='time(fib_hell(29, _)), statistics.' id="query" required>
+	<input type="text" style="width: 74ch" value='time(fib(29, _)), statistics.' id="query" required>
 	<input type="submit" value="Query" id="query-btn" disabled>
 </form>
 
