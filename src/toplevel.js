@@ -13,6 +13,7 @@ export const FORMATS = {
 			if (start > end) {
 				start = -1;
 			}
+			console.log(dec.decode(stdout));
 			const nl = stdout.indexOf(10, end+1); // LINE FEED
 			const butt = nl >= 0 ? nl : stdout.length;
 			const json = dec.decode(stdout.slice(end + 1, butt));

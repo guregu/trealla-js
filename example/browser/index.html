@@ -11,18 +11,49 @@
 			display: none;
 		}
 	</style>
+	<!-- animated background for testing auto-yield -->
+	<!--
+	<style>
+	body {
+		animation-name: rainbow;
+		animation-duration: 5s;
+		animation-iteration-count: infinite;
+		animation-direction: alternate;
+		animation-timing-function: linear; 
+		/* linear is enabled default, it’s not necessary to add it make it work but it can make your code more expressive */
+	}
+
+	@keyframes rainbow {
+		0% {
+			background: #ee6055;
+		}
+		25% {
+			background: #60d394;
+		}
+		50% {
+			background: #aaf683;
+		}
+		75% {
+			background: #ffd97d;
+		}
+		100% {
+			background: #ff9b85;
+		}
+	}
+	</style>
+	-->
 </head>
 <body>
 <h2>Trealla Sandbox</h2>
 
 <form onsubmit="return ask(), false;">
 	<textarea cols=80 rows=20 id="src">
-mortal(X) :- human(X).
-human(socrates).
-human(plato).
+fib_hell(0, R) :- !, R=1, true.
+fib_hell(1, R) :- !, R=1, true.
+fib_hell(N, R) :- M is N-1, fib_hell(M, A), L is M-1, fib_hell(L, B), R is A+B.
 	</textarea>
 	<br>
-	<input type="text" style="width: 74ch" value='mortal(Who), format("All humans are mortal. ~a is human. Hence, ~a is mortal.", [Who, Who]).' id="query" required>
+	<input type="text" style="width: 74ch" value='time(fib_hell(29, _)), statistics.' id="query" required>
 	<input type="submit" value="Query" id="query-btn" disabled>
 </form>
 

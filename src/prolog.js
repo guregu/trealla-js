@@ -80,7 +80,8 @@ export class Prolog {
 			bind,
 			program, 			// Prolog text to consult before running query
 			format = "json", 	// Format (toplevel) selector
-			encode				// Options passed to toplevel
+			encode,				// Options passed to toplevel
+			autoyield = 20		// Yield interval, milliseconds. Set to 0 to disable.
 		} = options;
 
 		goal = goal.replaceAll("\n", " ");
@@ -110,17 +111,20 @@ export class Prolog {
 		const pl_redo = this.instance.exports.pl_redo;
 		const pl_done = this.instance.exports.pl_done;
 		const get_status = this.instance.exports.get_status;
-		const query_did_yield = this.instance.exports.query_did_yield;
+		const pl_did_yield = this.instance.exports.pl_did_yield;
+		const pl_yield_at = this.instance.exports.pl_yield_at;
 
 		const goalstr = new CString(this.instance, toplevel.query(this, goal, bind, encode));
 		const subqptr = realloc(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
 		let finalizing = false;
+		let lastYield = 0;
 
 		try {
-			const ok = pl_query(this.ptr, goalstr.ptr, subqptr);
+			const ok = pl_query(this.ptr, goalstr.ptr, subqptr, autoyield);
 			goalstr.free();
-			task.subquery = indirect(this.instance, subqptr); // pl_sub_query*
+			task.subquery = indirect(this.instance, subqptr, autoyield); // pl_sub_query*
 			free(subqptr, PTRSIZE, 1);
+
 			do {
 				if (this.finalizers && task.alive && !finalizing) {
 					this.finalizers.register(token, task);
@@ -128,11 +132,17 @@ export class Prolog {
 				}
 				// if the guest yielded, run the yielded promise and redo
 				// upon redo, the guest can call '$host_continue'/1 to grab the promise's return value
-				if (query_did_yield(task.subquery) === TRUE) {
+				if (pl_did_yield(task.subquery) === TRUE) {
 					const thunk = this.yielding[task.subquery];
 					if (!thunk) {
 						// guest yielded without having called '$host_call'/2
 						// TODO: is it useful to attempt to process the output here?
+						let now;
+						if (autoyield > 0 && (now = Date.now()) - lastYield > autoyield) {
+							lastYield = now;
+							await new Promise(resolve => setTimeout(resolve, 0));
+							pl_yield_at(task.subquery, autoyield);
+						}
 						continue
 					}
 					try {

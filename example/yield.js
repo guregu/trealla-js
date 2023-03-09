@@ -19,3 +19,5 @@ console.log(await pl.queryOnce(`js_eval("should_throw_a_js_error")`, {format: "p
 
 pl.queryOnce(`sleep(1), write('CATS: All your base are belong to us.')`, {format: "prolog"}).then(x => console.log(x));
 console.log("Operator: Main screen turn on.");
+
+// pl.queryOnce()
