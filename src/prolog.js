@@ -81,7 +81,7 @@ export class Prolog {
 			program, 			// Prolog text to consult before running query
 			format = "json", 	// Format (toplevel) selector
 			encode,				// Options passed to toplevel
-			autoyield = 50		// Yield interval, milliseconds
+			autoyield = 20		// Yield interval, milliseconds. Set to 0 to disable.
 		} = options;
 
 		goal = goal.replaceAll("\n", " ");
@@ -120,7 +120,7 @@ export class Prolog {
 		let lastYield = 0;
 
 		try {
-			const ok = pl_query(this.ptr, goalstr.ptr, subqptr);
+			const ok = pl_query(this.ptr, goalstr.ptr, subqptr, autoyield);
 			goalstr.free();
 			task.subquery = indirect(this.instance, subqptr, autoyield); // pl_sub_query*
 			free(subqptr, PTRSIZE, 1);
