@@ -277,15 +277,13 @@ declare module 'trealla' {
 
   /** Prolog term.
     Default encoding (in order of priority):
-  ```
-    string(X) 	→ string
-    is_list(X)	→ List
-    atom(X)		→ Atom
-    compound(X)	→ Compound
-    integer(X)	→ BigInt if necessary
-    number(X) 	→ number
-    var(X) 		→ Variable
-  ```
+    string(X)   → string
+    is_list(X)  → List
+    atom(X)     → Atom
+    compound(X) → Compound
+    integer(X)  → BigInt if necessary
+    number(X)   → number
+    var(X)      → Variable
   */
   type Term = Atom | Compound | Variable | List | string | number | BigInt;
 
