@@ -4,7 +4,8 @@ export class Atom {
 	constructor(functor) {
 		this.functor = functor;
 	}
-	get pi() { return `${this.functor}/0` };
+	get pi() { return `${this.functor}/0` }
+	get piTerm() { return piTerm(this.functor, 0) }
 	toProlog() {
 		return escapeAtom(this.functor);
 	}
@@ -23,9 +24,18 @@ export class Compound {
 	constructor(functor, args) {
 		this.functor = functor;
 		this.args = args;
+		if (typeof args?.length === "undefined")
+			throw new Error("bad compound, not a list: " + functor);
 	}
 	get pi() { return `${this.functor}/${this.args.length}` }
+	get piTerm() { return new Compound("/", [this.functor, this.args.length]) }
 	toProlog() {
+		if (this.args.length === 0)
+			return escapeAtom(this.functor);
+	
+		if (this.args.length === 2 && (this.functor === ":" || this.functor === "/"))
+			return `${toProlog(this.args[0])}${this.functor}${toProlog(this.args[1])}`;
+	
 		return `${escapeAtom(this.functor)}(${this.args.map(toProlog).join(",")})`
 	}
 	toString() { return this.toProlog(); }
@@ -62,26 +72,55 @@ function validVar(name) {
 	return false;
 }
 
+export function piTerm(name, arity) {
+	return new Compound("/", [new Atom(name), arity]);
+}
+
 /** Converts the given term object into Prolog text. */
 export function toProlog(obj) {
-	if (typeof obj === "number") return obj.toString();
-	if (typeof obj === "bigint") return obj.toString();
-	if (typeof obj === "string") return escapeString(obj);
-	if (typeof obj?.toProlog === "function") return obj.toProlog();
-	if (Array.isArray(obj)) {
-		return `[${obj.map(toProlog).join(",")}]`;
+	switch (typeof obj) {
+	case "number":
+		return obj.toString();
+	case "bigint":
+		return obj.toString();
+	case "string":
+		return escapeString(obj);
+	case "boolean":
+		return obj ? "{true}" : "{false}";
+	case "undefined":
+		return "{undefined}";
 	}
+	
+	if (typeof obj?.toProlog === "function")
+		return obj.toProlog();
+
+	if (obj === null)
+		return "{null}";
+
+	if (Array.isArray(obj))
+		return `[${obj.map(toProlog).join(",")}]`;
+
 	throw new Error("trealla: can't convert object to Prolog term: " + obj);
 }
 
 // TODO: might be nice if escapeAtom could avoid the quoting when it can,
 // but it is easier to just quote everything.
 export function escapeAtom(atom) {
-	return `'${atom.replaceAll("\\", "\\\\").replaceAll(`'`, `\\'`)}'`;
+	return `'${atom
+		.replaceAll("\\", "\\\\")
+		.replaceAll(`'`, `\\'`)
+		.replaceAll("\n", "\\n")
+		.replaceAll("\t", "\\t")
+	}'`;
 }
 
 export function escapeString(str) {
-	return `"${str.replaceAll("\\", "\\\\").replaceAll(`"`, `\\"`)}"`;
+	return `"${str
+		.replaceAll("\\", "\\\\")
+		.replaceAll(`"`, `\\"`)
+		.replaceAll("\n", "\\n")
+		.replaceAll("\t", "\\t")
+	}"`;
 }
 
 export function fromJSON(json, options) {

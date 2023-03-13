@@ -3,6 +3,8 @@ import { init as initWasmer, WASI } from '@wasmer/wasi';
 import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE } from './c';
 import { FORMATS } from './toplevel';
+import { Atom, Compound, fromJSON, toProlog, piTerm } from './term';
+import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm } from './interop';
 import tpl_wasm from '../libtpl.wasm';
 
 let tpl = undefined; // default Trealla module
@@ -25,9 +27,14 @@ export class Prolog {
 	instance;
 	ptr; // pointer to *prolog instance
 	n = 0;
+	taskcount = 0;
 	scratch = 0;
 	finalizers;
 	yielding = {};
+	procs = {};
+	tasks = new Map();
+	subqs = new Map();
+	spawning = new Map(); // **subq -> ctrl
 
 	/**	Create a new Prolog interpreter instance. */
 	constructor(options = {}) {
@@ -66,6 +73,8 @@ export class Prolog {
 		}
 		const pl_global = this.instance.exports.pl_global;
 		this.ptr = pl_global();
+
+		await this.registerPredicates(LIBRARY, "builtin");
 	}
 
 	/** Run a query. This is an asynchronous generator function.
@@ -81,10 +90,10 @@ export class Prolog {
 			program, 			// Prolog text to consult before running query
 			format = "json", 	// Format (toplevel) selector
 			encode,				// Options passed to toplevel
-			autoyield = 20		// Yield interval, milliseconds. Set to 0 to disable.
+			autoyield = 20,		// Yield interval, milliseconds. Set to 0 to disable.
 		} = options;
 
-		goal = goal.replaceAll("\n", " ");
+		goal = goal.replaceAll("\n", " ").replaceAll("\t", " ");
 
 		const toplevel =
 			typeof format === "string" ? FORMATS[format] : format;
@@ -94,13 +103,16 @@ export class Prolog {
 
 		const _id = ++this.n;
 		const token = {};
-		const task = {
-			subquery: NULL,
-			alive: false
-		};
-
-		if (program) {
-			await this.consultText(program);
+		
+		let stdoutbufs = [];
+		let stderrbufs = [];
+		const readOutput = () => {
+			const stdout = this.wasi.getStdoutBuffer();
+			const stderr = this.wasi.getStderrBuffer();
+			if (stdout.length > 0)
+				stdoutbufs.push(stdout);
+			if (stderr.length > 0)
+				stderrbufs.push(stderr);
 		}
 
 		// standard WASI exports (from wasi.c)
@@ -114,69 +126,120 @@ export class Prolog {
 		const pl_did_yield = this.instance.exports.pl_did_yield;
 		const pl_yield_at = this.instance.exports.pl_yield_at;
 
+		let subqptr = realloc(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
+		let readSubqPtr = () => {
+			const subq = subqptr ? indirect(this.instance, subqptr, autoyield) : NULL;
+			if (subq !== NULL) {
+				this.subqs.set(subq, ctrl);
+				this.spawning.delete(subqptr);
+			}
+			return subq;
+		}
+		const ctrl = {
+			subq: NULL,
+			get subquery() {
+				if (this.subq === NULL)
+					this.subq = readSubqPtr();
+				return this.subq;
+			},
+			alive: false,
+			stdout: function(str) {
+				if (!str) return;
+				stdoutbufs.push(new TextEncoder().encode(str));	
+			},
+			stderr: function(str) {
+				if (!str) return;
+				stderrbufs.push(new TextEncoder().encode(str));
+			}
+		};
+		this.spawning.set(subqptr, ctrl);
+
+		if (program) {
+			await this.consultText(program);
+		}
+
 		const goalstr = new CString(this.instance, toplevel.query(this, goal, bind, encode));
-		const subqptr = realloc(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
 		let finalizing = false;
 		let lastYield = 0;
 
 		try {
 			const ok = pl_query(this.ptr, goalstr.ptr, subqptr, autoyield);
 			goalstr.free();
-			task.subquery = indirect(this.instance, subqptr, autoyield); // pl_sub_query*
+			
+			const subq = readSubqPtr(); // pl_sub_query*
+			ctrl.subq = subq;
+			readSubqPtr = function() { return subq };
 			free(subqptr, PTRSIZE, 1);
+			subqptr = NULL;
 
 			do {
-				if (this.finalizers && task.alive && !finalizing) {
-					this.finalizers.register(token, task);
+				if (this.finalizers && ctrl.alive && !finalizing) {
+					this.finalizers.register(token, ctrl);
 					finalizing = true;
 				}
+				
+				// need to eagerly read buffers in case we await or come from a yield
+				readOutput();
+
 				// if the guest yielded, run the yielded promise and redo
 				// upon redo, the guest can call '$host_continue'/1 to grab the promise's return value
-				if (pl_did_yield(task.subquery) === TRUE) {
-					const thunk = this.yielding[task.subquery];
+				if (pl_did_yield(ctrl.subq) === TRUE) {
+					const thunk = this.yielding[ctrl.subq];
 					if (!thunk) {
 						// guest yielded without having called '$host_call'/2
-						// TODO: is it useful to attempt to process the output here?
 						let now;
 						if (autoyield > 0 && (now = Date.now()) - lastYield > autoyield) {
 							lastYield = now;
 							await new Promise(resolve => setTimeout(resolve, 0));
-							pl_yield_at(task.subquery, autoyield);
+							pl_yield_at(ctrl.subq, autoyield);
+							readOutput();
 						}
 						continue
 					}
 					try {
 						thunk.value = await thunk.promise;
+						readOutput();
 					} catch (err) {
 						// TODO: better format for this
-						thunk.value = {"$error": `${err}`};
+						console.error(err);
+						thunk.value = throwTerm(system_error("js_exception", err.toString(), piTerm("$host_resume", 1)));
 					}
 					thunk.done = true;
+					lastYield = Date.now();
 					continue;
 				}
 				// otherwise, pass to toplevel
 				const status = get_status(this.ptr) === TRUE;
-				const stdout = this.wasi.getStdoutBuffer();
-				const stderr = this.wasi.getStderrBuffer();
+				const stdout = joinBuffers(stdoutbufs);
+				const stderr = joinBuffers(stderrbufs);
+				stdoutbufs = [];
+				stderrbufs = [];
 				if (stdout.byteLength === 0) {
 					const truth = toplevel.truth(this, status, stderr, encode);
 					if (truth === null) return;
 					yield truth;
 				} else {
-					yield toplevel.parse(this, status, stdout, stderr, encode);
+					const solution = toplevel.parse(this, status, stdout, stderr, encode);
+					if (solution === null) return;
+					yield solution;
 				}
 				if (ok === FALSE) {
 					return;
 				}
-			} while(task.alive = pl_redo(task.subquery) === TRUE)
+			} while(ctrl.alive = pl_redo(ctrl.subq) === TRUE)
 		} finally {
 			if (finalizing) {
 				this.finalizers.unregister(token);
 			}
-			if (task.alive && task.subquery !== NULL) {
-				task.alive = false;
-				pl_done(task.subquery);
-				delete this.yielding[task.subquery];
+
+			if (ctrl.subq !== NULL) {
+				this.subqs.delete(ctrl.subq);
+
+				if (ctrl.alive) {
+					ctrl.alive = false;
+					pl_done(ctrl.subq);
+					delete this.yielding[ctrl.subq];
+				}
 			}
 		}
 	}
@@ -224,6 +287,43 @@ export class Prolog {
 		this.fs.removeFile(filename);
 	}
 
+	async consultTextInto(code, module = "user") {
+		if (!this.instance) {
+			await this.init();
+		}
+		// Module:'$load_chars'(Code)
+		const goal = new Compound(":", [new Atom(module), new Compound("$load_chars", [code])]);
+		const reply = await this.queryOnce(goal.toProlog());
+		if (reply.result !== "success") {
+			throw new Error("trealla: consult text failed");
+		}
+		console.log("loaded", module, code);
+	}
+
+	async register(name, arity, func, module = "user") {
+		if (typeof func !== "function")
+			throw new Error("trealla: register predicate argument is not a function");
+
+		return await this.registerPredicate(module, new Predicate(name, arity, func));
+	}
+
+	async registerPredicate(pred, module = "user") {
+		if (!(pred instanceof Predicate))
+			throw new Error("trealla: predicate is not type Predicate");
+
+		this.procs[pred.pi] = pred.fn;
+		await this.consultTextInto(shim, module);
+	}
+
+	async registerPredicates(predicates, module = "user") {
+		let shim = "";
+		for (const pred of predicates) {
+			this.procs[pred.pi] = pred.fn;
+			shim += pred.shim(); + " ";
+		}
+		await this.consultTextInto(shim, module);
+	}
+
 	async writeScratchFile(code) {
 		const id = ++this.scratch;
 		const filename = `/tmp/scratch${id}.pl`;
@@ -240,6 +340,61 @@ export class Prolog {
 		return filename;
 	}
 
+	addTask(query) {
+		const id = this.taskcount++;
+		const q = this.runTask(id, query);
+		this.tasks.set(id, {
+			id: id,
+			promise: null,
+			cancel: null,
+			query: q
+		});
+		return id;
+	}
+
+	async* runTask(id, query) {
+		let choice = 0;
+		try {
+			for await (const x of query) {
+				yield {task_id: id, result: x, time: Date.now(), depth: choice++};
+			}
+		} finally {
+			this.tasks.delete(id);
+		}
+	}
+
+	tickTask(task) {
+		if (!task.promise) {
+			task.promise = new Promise(async (resolve) => {
+				task.cancel = () => {
+					task.query.return();
+					resolve();
+				};
+				const {value} = await task.query.next();
+				resolve(value);
+				task.promise = null;
+				task.cancel = null;
+			});
+		}
+		return task.promise;
+	}
+
+	async tick() {
+		const ps = Array.from(this.tasks.values()).
+			map(task => this.tickTask(task));
+
+		if (ps.length === 0)
+			return null;
+
+		try {
+			let next = await Promise.any(ps);
+			return next;
+		} catch (err) {
+			console.error(err);
+			return null;
+		}
+	}
+
 	/**	wasmer-js virtual filesystem.
 	 *	Unique per interpreter, Prolog can read and write from it.
 	 *	See: https://github.com/wasmerio/wasmer-js */
@@ -247,21 +402,34 @@ export class Prolog {
 		return this.wasi.fs;
 	}
 
+	ctrl(subquery) {
+		const ctrl = this.subqs.get(subquery);
+		if (ctrl)
+			return ctrl;
+		for (const [_, ctrl] of this.spawning) {
+			if (ctrl.subquery === subquery)
+				return ctrl;
+		}
+	}
+
 	_host_call(subquery, ptr, msgsize, replyptrptr, replysizeptr) {
-		const expr = readString(this.instance, ptr, msgsize);
+		const raw = readString(this.instance, ptr, msgsize);
+		const goal = fromJSON(raw);
+		const ctrl = this.ctrl(subquery);
 		let result;
 		try {
-			const fn = new Function(expr);
-			const x = fn();
+			const fn = this.procs[goal.pi] ?? sys_missing_n;
+			const x = fn(this, subquery, goal, ctrl);
 			if (x instanceof Promise) {
 				this.yielding[subquery] = {promise: x, done: false};
 				return WASM_HOST_CALL_YIELD;
 			}
-			result = replyMsg(x);
+			result = x ? toProlog(x) : "true";
 		} catch(error) {
 			console.error(error);
-			result = JSON.stringify({"$error": `${error}`});
+			result = throwTerm(system_error("js_exception", error.toString(), goal.piTerm)).toProlog();
 		}
+		console.log("hostcall result:", result);
 		const reply = new CString(this.instance, result);
 		writeUint32(this.instance, replysizeptr, reply.size-1);
 		writeUint32(this.instance, replyptrptr, reply.ptr);
@@ -280,10 +448,10 @@ export class Prolog {
 		let result;
 		try {
 			const x = task.value;
-			result = replyMsg(x);
+			result = x ? toProlog(x) : "true";
 		} catch(error) {
 			console.error(error);
-			result = JSON.stringify({"$error": `${error}`});
+			result = throwTerm(system_error("js_exception", error.toString(), goal.piTerm)).toProlog();
 		}
 		const reply = new CString(this.instance, result);
 		writeUint32(this.instance, replysizeptr, reply.size-1);
@@ -297,13 +465,6 @@ const WASM_HOST_CALL_ERROR = 0;
 const WASM_HOST_CALL_OK = 1;
 const WASM_HOST_CALL_YIELD = 2;
 
-function replyMsg(x) {
-	if (x instanceof Uint8Array) {
-		return new TextDecoder().decode(x);
-	}
-	return typeof x !== "undefined" ? JSON.stringify(x) : "null";
-}
-
 function newWASI(library, env, quiet) {
 	const args = ["tpl", "--ns", "-g", "use_module(user), halt"];
 	if (library) args.push("--library", library);
@@ -316,4 +477,24 @@ function newWASI(library, env, quiet) {
 	wasi.fs.createDir("/tmp");
 
 	return wasi;
+}
+
+function joinBuffers(bufs) {
+	if (bufs.length === 0) {
+		return new Uint8Array(0);
+	}
+	if (bufs.length === 1) {
+		return bufs[0];
+	}
+	let size = 0;
+	for (const buf of bufs) {
+		size += buf.length;
+	}
+	const ret = new Uint8Array(size);
+	let i = 0;
+	for (const buf of bufs) {
+		ret.set(buf, i);
+		i += buf.length;
+	}
+	return ret;
 }

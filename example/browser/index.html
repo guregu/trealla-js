@@ -49,7 +49,10 @@ fib(1, R) :- !, R=1.
 fib(N, R) :- M is N-1, fib(M, A), L is M-1, fib(L, B), R is A+B.
 	</textarea>
 	<br>
-	<input type="text" style="width: 74ch" value='time(fib(29, _)), statistics.' id="query" required>
+<!--	<input type="text" style="width: 74ch" value='time(fib(29, _)), statistics.' id="query" required> -->
+	<input type="text" style="width: 74ch" value='
+	task( (task( (delay(50), writeln(hi2) ; write(aaaa)) ),  writeln(hi)) ), task( (delay(200), write(hi3) ; write(hmm) ; write(uuu)) ), time(wait).
+	' id="query" required>
 	<input type="submit" value="Query" id="query-btn" disabled>
 </form>
 
@@ -81,6 +84,7 @@ window.ask = async function ask() {
 	let text = "";
 	for await (const msg of pl.query(query.value, {program: src.value})) {
 		text += JSON.stringify(msg, null, "  ") + "\n";
+		if (msg.stderr) console.log(msg.stderr);
 	}
 	console.timeEnd("query");
 	result.textContent = text;

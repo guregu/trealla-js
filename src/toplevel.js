@@ -7,23 +7,34 @@ export const FORMATS = {
 			return `js_ask(${escapeString(query)}).`;
 		},
 		parse: function(_pl, _status, stdout, stderr, opts) {
-			const dec = new TextDecoder();
-			let start = stdout.indexOf(2); // ASCII START OF TEXT
-			const end = stdout.indexOf(3); // ASCII END OF TEXT
-			if (start > end) {
-				start = -1;
+			let start = stdout.indexOf(2);					// ASCII START OF TEXT
+			const end = stdout.indexOf(3, start+1); 		// ASCII END OF TEXT
+			const jsonStart = stdout.indexOf(123, end+1); 	// {
+			let jsonEnd = stdout.indexOf(10, jsonStart+1); 	// LINE FEED
+			if (jsonEnd === -1) {
+				jsonEnd = stdout.lastIndexOf(125);			// }
 			}
-			console.log(dec.decode(stdout));
-			const nl = stdout.indexOf(10, end+1); // LINE FEED
-			const butt = nl >= 0 ? nl : stdout.length;
-			const json = dec.decode(stdout.slice(end + 1, butt));
+
+			const dec = new TextDecoder();
+			const json = dec.decode(stdout.slice(jsonStart, jsonEnd));
 			const msg = JSON.parse(json, reviver(opts));
+
 			if (start + 1 !== end) {
 				msg.stdout = dec.decode(stdout.slice(start + 1, end));
 			}
+
 			if (stderr.byteLength > 0) {
 				msg.stderr = dec.decode(stderr);
 			}
+
+			if (typeof msg?.answer?.__GOAL === "object") {
+				msg.goal = msg.answer.__GOAL;
+				delete msg.answer.__GOAL;
+			}
+			if (typeof opts?.extra !== "undefined") {
+				msg.extra = opts.extra;
+			}
+
 			return msg;
 		},
 		truth: function() { return null; }

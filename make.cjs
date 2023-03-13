@@ -11,7 +11,7 @@ const stdLibBrowser = require('node-stdlib-browser');
 		format: 'esm',
 		loader: {'.wasm': 'binary'},
 		target: ['firefox78', 'safari15'],
-		minify: true,
+		// minify: true,
 		keepNames: true,
 		sourcemap: true,
 		inject: [require.resolve('node-stdlib-browser/helpers/esbuild/shim')],
