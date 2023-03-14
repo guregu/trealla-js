@@ -200,7 +200,6 @@ export class Prolog {
 						thunk.value = await thunk.promise;
 						readOutput();
 					} catch (err) {
-						// TODO: better format for this
 						console.error(err);
 						thunk.value = throwTerm(system_error("js_exception", err.toString(), piTerm("$host_resume", 1)));
 					}
@@ -297,7 +296,7 @@ export class Prolog {
 		if (reply.result !== "success") {
 			throw new Error("trealla: consult text failed");
 		}
-		console.log("loaded", module, code);
+		// console.log("loaded:", module, code);
 	}
 
 	async register(name, arity, func, module = "user") {
@@ -429,7 +428,6 @@ export class Prolog {
 			console.error(error);
 			result = throwTerm(system_error("js_exception", error.toString(), goal.piTerm)).toProlog();
 		}
-		console.log("hostcall result:", result);
 		const reply = new CString(this.instance, result);
 		writeUint32(this.instance, replysizeptr, reply.size-1);
 		writeUint32(this.instance, replyptrptr, reply.ptr);

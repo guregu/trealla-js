@@ -85,27 +85,6 @@ export const js_eval_2 = new Predicate(
 		return new Compound(goal.functor, [goal.args[0], value]);
 	});
 
-export const js_eval_json_2 = new Predicate(
-	"js_eval_json", 2,
-	async function(pl, subquery, goal) {
-		const expr = goal.args[0];
-		if (typeof expr !== "string")
-			return throwTerm(type_error("chars", expr, goal.piTerm));
-
-		let value;
-		try {
-			value = JSON.stringify(await js_eval(pl, subquery, goal, expr));
-		} catch (error) {
-			console.error(error);
-			return throwTerm(system_error("js_exception", error.toString(), goal.piTerm)).toProlog();
-		}
-
-		if (!value)
-			return new Compound(goal.functor, [goal.args[0], toProlog(value)]);
-
-		return new Compound("call", [new Compound("json_chars", [goal.args[1], value])]);
-	});
-
 async function js_eval(pl, subquery, goal, expr) {
 	if (typeof expr !== "string")
 		return throwTerm(type_error("chars", expr, goal.piTerm));
@@ -118,17 +97,17 @@ async function js_eval(pl, subquery, goal, expr) {
 	return value;
 }
 
-export const task_1 = new Predicate(
-	"task", 1,
-	function(pl, subq, goal) {
-		const call = goal.args[0];
-		if (!isCallable(call))
-			return throwTerm(type_error("callable", call, goal.piTerm));
+// export const task_1 = new Predicate(
+// 	"task", 1,
+// 	function(pl, subq, goal) {
+// 		const call = goal.args[0];
+// 		if (!isCallable(call))
+// 			return throwTerm(type_error("callable", call, goal.piTerm));
 
-		const task = pl.query(goal.args[0].toProlog());
-		pl.addTask(task);
-		return true_0;
-	});
+// 		const task = pl.query(goal.args[0].toProlog());
+// 		pl.addTask(task);
+// 		return true_0;
+// 	});
 
 export const future_2 = new Predicate(
 	"future", 2,
@@ -211,9 +190,8 @@ export const await_any_3 = new Predicate(
 		if (!reply)
 			return fail_0;
 		
-		const i = tokens.findIndex(x => x.args[0] === reply.task_id);
-		const win = tokens[i];
-		const rest = Array.from(tokens).splice(i);
+		const win = tokens.find(x => x.args[0] === reply.task_id);
+		const rest = tokens.filter(x => x.args[0] !== reply.task_id);
 
 		if (reply.result.stdout)
 			ctrl.stdout(reply.result.stdout);
@@ -225,12 +203,17 @@ export const await_any_3 = new Predicate(
 		if (reply.result.result === "error")
 			return throwTerm(reply.result.error);
 
-		tokens[i].args[1] = reply.result.goal;
+		win.args[1] = reply.result.goal;
+		// tokens[i].args[2] = new Variable("_");
 		goal.args[1] = win;
 		goal.args[2] = rest;
 		return goal;
 	}
 );
+
+/*
+	'$promise'(ID, Tmpl, Goal)
+*/
 
 export const promise_cancel_1 = new Predicate(
 	"promise_cancel", 1,
@@ -294,70 +277,60 @@ export const sys_await_all_1 = new Predicate(
 );
 	
 // TODO: let predicates be async generators?
-export const wait_0 = new Predicate(
-		"wait", 0,
-		async function(pl, subq, goal) {
-			let replies = [];
-			while (true) {
-				const x = await pl.tick();
-				if (typeof x === "undefined")
-					continue;
-				if (!x)
-					break;
-				replies.push(x);				
-			}
-			replies.sort((a, b) => a.depth - b.depth);
+// '$await_some'(Fs, Fs_OK, Fs_Done)
+export const sys_await_some_3 = new Predicate(
+		"$await_some", 3,
+		async function(pl, subq, goal, ctrl) {
+			const tokens = goal.args[0];
+			const ps = tokens.map(token => {
+				if (token.functor !== "$promise") {
+					return {result: {
+						result: "error",
+						error: type_error("promise", token, goal.piTerm)
+					}};
+				}
+				const id = token.args[0];
+				const task = pl.tasks.get(id);
+				if (!task) return;
+				return pl.tickTask(task);
+			});
+			const replies = await Promise.all(ps);
 
 			if (replies.length === 0)
-				return true_0;
-			
-			let cont = true_0;
-			let depth = replies[replies.length-1].depth;
-			for (let i = replies.length - 1; i >= 0; i--) {
+				return fail_0;
+
+			const ok = [];
+			const done = [];
+			for (let i = 0; i < replies.length; i++) {
 				const reply = replies[i];
-				cont = continuation(cont, reply, depth);
-				if (reply.depth < depth) {
-					depth = reply.depth;
+				const result = replies[i]?.result;
+				if (!reply) {
+					done.push(goal.args[0][i]);
+					continue;
 				}
+
+				if (result?.result === "error") {
+					return throwTerm(result.error);
+				} else if (result?.result === "failure") {
+					done.push(goal.args[0][i]);
+				} else {
+					ok.push(goal.args[0][i]);
+					goal.args[0][i].args[1] = result.goal;
+				}
+
+				if (reply.result.stdout)
+					ctrl.stdout(reply.result.stdout);
+				if (reply.result.stderr)
+					ctrl.stderr(reply.result.stderr);
 			}
-			return new Compound("call", [cont]);
+
+			if (ok.length === 0)
+				return fail_0;
+			
+			goal.args[1] = ok;
+			goal.args[2] = done;
+			return goal;
 		});
-
-function continuation(cc, msg, depth) {
-	if (!msg) {
-		return cc;
-	}
-	const reply = msg.result;
-
-	if (msg.depth < depth) {
-		cc = new Compound(";", [true_0, cc]);
-	}
-
-	if (reply?.result === "failure") {
-		cc = new Compound(",", [new Atom("fail"), cc]);
-	} else if (reply?.result === "error") {
-		cc = new Compound(",", [throwTerm(reply.error), cc]);
-	}
-
-	if (reply?.stdout?.length > 0) {
-		// currently tasks don't play well with stdout buffering
-		// so stdout can be polluted by control codes from earlier tasks
-		// this little hack works around it but we should probably revisit stdout handling
-		for (var idx = 0; idx < reply.stdout.length && reply.stdout[idx] === "\x02"; idx++);
-		const stdout = reply.stdout.slice(idx);
-		cc = new Compound(",", [new Compound("bwrite", [new Atom("stdout"), stdout]), cc]);
-	}
-
-	if (reply?.stderr?.length > 0) {
-		cc = new Compound(",", [new Compound("bwrite", [new Atom("stderr"), reply.stderr]), cc]);
-	}
-
-	// for (const [name, value] of Object.entries(reply.answer)) {
-	// 	cc = new Compound(",", [new Compound("=", [new Variable(name), value]), cc]);
-	// }
-
-	return cc
-}
 
 export function sys_missing_n(_pl, _subq, goal) {
 	return throwTerm(existence_error("procedure", goal.piTerm, piTerm("host_rpc", 1)))
@@ -392,9 +365,8 @@ export const LIBRARY = [
 	delay_1,
 	console_log_1,
 	js_eval_2,
-	js_eval_json_2,
-	task_1,
-	wait_0,
+	// task_1,
+	sys_await_some_3,
 	future_2,
 	sys_await_1,
 	sys_await_all_1,

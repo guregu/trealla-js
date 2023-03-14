@@ -44,14 +44,28 @@
 
 <form onsubmit="return ask(), false;">
 	<textarea cols=80 rows=20 id="src">
-fib(0, R) :- !, R=1.
-fib(1, R) :- !, R=1.
-fib(N, R) :- M is N-1, fib(M, A), L is M-1, fib(L, B), R is A+B.
+slow_predicate(X) :- delay(500), console_log("sadjwajd"), writeln('i should be killed'), X = 69.
+faster_predicate(X) :- delay(50), writeln('i win!'), X = 42.
+
+test(X) :-
+    future(slow_predicate(X), F1),
+    future(faster_predicate(X), F2),
+    future_any([F1, F2], F),
+    await(F),
+    format("answer = ~w", [X]).
+
+test2(X) :-
+    future(slow_predicate(X), F1),
+    future(faster_predicate(X), F2),
+    await_any([F1, F2], _, Rest),
+    maplist(promise_cancel, Rest),
+    format("answer = ~w", [X]).
+
 	</textarea>
 	<br>
 <!--	<input type="text" style="width: 74ch" value='time(fib(29, _)), statistics.' id="query" required> -->
 	<input type="text" style="width: 74ch" value='
-	task( (task( (delay(50), writeln(hi2) ; write(aaaa)) ),  writeln(hi)) ), task( (delay(200), write(hi3) ; write(hmm) ; write(uuu)) ), time(wait).
+	test2(X)
 	' id="query" required>
 	<input type="submit" value="Query" id="query-btn" disabled>
 </form>
