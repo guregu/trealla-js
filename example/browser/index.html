@@ -58,7 +58,7 @@ test2(X) :-
     future(slow_predicate(X), F1),
     future(faster_predicate(X), F2),
     await_any([F1, F2], _, Rest),
-    maplist(future_cancel, Rest),
+   % maplist(future_cancel, Rest),
     format("answer = ~w", [X]).
 
 	</textarea>

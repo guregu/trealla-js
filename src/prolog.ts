@@ -4,7 +4,7 @@ import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, WASI as CanonicalInstance, ABI, int_t, char_t, bool_t, size_t } from './c';
 import { FORMATS, Toplevel } from './toplevel';
 import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term } from './term';
-import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, PredicateFunction } from './interop';
+import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, PredicateFunction, Continuation, AsyncContinuation } from './interop';
 // @ts-ignore
 import tpl_wasm from '../libtpl.wasm';
 
@@ -134,8 +134,8 @@ interface Trealla extends ABI {
 }
 
 export interface Thunk {
-    promise?: Promise<Term>;
-    value?: Term;
+    promise?: AsyncGenerator<Goal | boolean, undefined | void, void>;
+    value?: Goal | boolean;
     done: boolean;
 }
 
@@ -163,7 +163,7 @@ export class Prolog {
 	scratch = 0;
 	finalizers;
 	yielding: Record<Ptr<subquery_t>, Thunk> = {};		// *subq → maybe promise
-	procs: Record<string, PredicateFunction<Atom> | PredicateFunction<Compound>> = {}; // pi → predicate
+	procs: Record<string, Predicate<Goal>> = {}; // pi → predicate
 	tasks = new Map<number, Task>();		            // id → task
 	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 		    // *subq → ctrl
 	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();   // **subq → ctrl
@@ -259,9 +259,9 @@ export class Prolog {
 		const pl_did_yield = this.instance.exports.pl_did_yield;
 		const pl_yield_at = this.instance.exports.pl_yield_at;
 
-		let subqptr = realloc<Ptr<subquery_t>>(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
+		let subqptr: Ptr<Ptr<subquery_t>> = realloc(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
 		let readSubqPtr = () => {
-			const subq = subqptr ? indirect(this.instance, subqptr) : NULL;
+			const subq = subqptr ? indirect<Ptr<subquery_t>>(this.instance, subqptr) : NULL;
 			if (subq !== NULL) {
 				this.subqs.set(subq, ctrl);
 				this.spawning.delete(subqptr);
@@ -330,13 +330,19 @@ export class Prolog {
 						continue
 					}
 					try {
-						thunk.value = await thunk.promise;
-						readOutput();
+						if (thunk.promise) {
+							const {value, done} = await thunk.promise.next();
+							readOutput();
+							thunk.value = value ?? undefined;
+							thunk.done = done ?? true;
+						} else {
+							thunk.value = undefined;
+							thunk.done = true;
+						}
 					} catch (error) {
 						console.error(error);
 						thunk.value = throwTerm(system_error("js_exception", `${error}`, piTerm("$host_resume", 1)));
 					}
-					thunk.done = true;
 					lastYield = Date.now();
 					continue;
 				}
@@ -437,15 +443,15 @@ export class Prolog {
 		if (!(pred instanceof Predicate))
 			throw new Error("trealla: predicate is not type Predicate");
 
-		this.procs[pred.pi] = pred.fn;
+		this.procs[pred.pi] = pred;
 		const shim = pred.shim();
 		await this.consultTextInto(shim, module);
 	}
 
-	async registerPredicates(predicates: (Predicate<Atom>|Predicate<Compound>)[], module = "user") {
+	async registerPredicates(predicates: (Predicate<Goal>)[], module = "user") {
 		let shim = "";
 		for (const pred of predicates) {
-			this.procs[pred.pi] = pred.fn;
+			this.procs[pred.pi] = pred;
 			shim += pred.shim(); + " ";
 		}
 		await this.consultTextInto(shim, module);
@@ -529,22 +535,46 @@ export class Prolog {
 		const goal = fromJSON(raw) as Goal;
 		const ctrl = this.ctrl(subquery);
 		let result;
+		let cont: AsyncGenerator<Goal | boolean, undefined | void, void> | undefined;
 		try {
-			const fn = this.procs[goal.pi] ?? sys_missing_n;
-			const x = fn(this, subquery, goal as any, ctrl);
-			if (x instanceof Promise) {
-				this.yielding[subquery] = {promise: x, done: false};
-				return WASM_HOST_CALL_YIELD;
+			const pred = this.procs[goal.pi];
+			if (!pred) {
+				result = sys_missing_n(this, subquery, goal);
+			} else if (pred.sync && typeof pred.proc === "function") {
+				const value = pred.proc(this, subquery, goal, ctrl);
+				if (value instanceof Promise) {
+					cont = async function* () { yield value; }();
+				} else {
+					result = value;
+				}
+			} else {
+				cont = pred.eval(this, subquery, goal, ctrl);
 			}
-			result = x ? toProlog(x) : "true";
 		} catch(error) {
 			console.error(error);
 			result = throwTerm(system_error("js_exception", `${error}`, goal.piTerm)).toProlog();
 		}
-		const reply = new CString(this.instance, result);
+
+		if (cont) {
+			this.yielding[subquery] = {
+				promise: cont,
+				done: false
+			};
+		}
+
+		let reply: CString;
+		if (typeof result === "string") {
+			reply = new CString(this.instance, result);
+		} else {
+			reply = new CString(this.instance, "true");
+		}
+
 		writeUint32(this.instance, replysizeptr, reply.size-1);
 		writeUint32(this.instance, replyptrptr, reply.ptr);
-		return WASM_HOST_CALL_OK;
+
+		if (!cont)
+			return WASM_HOST_CALL_OK;
+		return WASM_HOST_CALL_YIELD;
 	}
 
 	_host_resume(subquery: Ptr<subquery_t>, replyptrptr: Ptr<Ptr<char_t>>, replysizeptr: Ptr<size_t>) {
@@ -559,7 +589,12 @@ export class Prolog {
 		let result;
 		try {
 			const x = task.value;
-			result = x ? toProlog(x) : "true";
+			if (!x)
+				result = "true";
+			else if (typeof x === "boolean")
+				result = x ? "true" : "false";
+			else
+				result = toProlog(x);
 		} catch(error) {
 			console.error(error);
 			result = throwTerm(system_error("js_exception", `${error}`, piTerm("host_rpc", 2))).toProlog();
@@ -567,14 +602,17 @@ export class Prolog {
 		const reply = new CString(this.instance, result);
 		writeUint32(this.instance, replysizeptr, reply.size-1);
 		writeUint32(this.instance, replyptrptr, reply.ptr);
+
+		// TODO: return _CHOICE
 		return WASM_HOST_CALL_OK;
 	}
 }
 
 // From -DWASM_IMPORTS
-const WASM_HOST_CALL_ERROR = 0;
-const WASM_HOST_CALL_OK = 1;
-const WASM_HOST_CALL_YIELD = 2;
+const WASM_HOST_CALL_ERROR	= 0;
+const WASM_HOST_CALL_OK		= 1;
+const WASM_HOST_CALL_YIELD	= 2;
+const WASM_HOST_CALL_CHOICE	= 3;
 
 function newWASI(library?: string, env?: Record<string, string>, quiet?: boolean) {
 	const args = ["tpl", "--ns", "-g", "use_module(user), halt"];
