@@ -1,18 +1,19 @@
 import { init as initWasmer, WASI } from '@wasmer/wasi';
 
 import { CString, indirect, readString, writeUint32,
-	PTRSIZE, ALIGN, NULL, FALSE, TRUE } from './c';
-import { FORMATS } from './toplevel';
-import { Atom, Compound, fromJSON, toProlog, piTerm } from './term';
-import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm } from './interop';
+	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, WASI as CanonicalInstance, ABI, int_t, char_t, bool_t, size_t } from './c';
+import { FORMATS, Toplevel } from './toplevel';
+import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term } from './term';
+import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, PredicateFunction } from './interop';
+// @ts-ignore
 import tpl_wasm from '../libtpl.wasm';
 
-let tpl = undefined; // default Trealla module
+let tpl: WebAssembly.Module = undefined!; // default Trealla module
 
 let initRuntime = false;
 async function initInternal() {
 	await initWasmer();
-	tpl = await WebAssembly.compile(tpl_wasm);
+	tpl = await WebAssembly.compile(tpl_wasm as Uint8Array);
 	initRuntime = true;
 }
 
@@ -21,23 +22,154 @@ export async function load() {
 	if (!initRuntime) await initInternal();
 }
 
+export interface PrologOptions {
+    /** Library files path (default: "/library")
+        This is to set the search path for use_module(library(...)). */
+    library?: string;
+    /** Environment variables.
+        Accessible with the predicate getenv/2. */
+    env?: Record<string, string>;
+    /** Quiet mode. Disables warnings printed to stderr if true. */
+    quiet?: boolean;
+    /** Manually specify module instead of the default. */
+    module?: WebAssembly.Module;
+}
+
+export interface QueryOptions {
+    /** Mapping of variables to bind in the query. */
+    bind?: Substitution;
+    /** Prolog program text to evaluate before the query. */
+    program?: string | Uint8Array;
+    /** Answer format. This changes the return type of the query generator.
+        `"json"` (default) returns Javascript objects.
+        `"prolog"` returns the standard Prolog toplevel output as strings.
+        You can add custom formats to the global `FORMATS` object.
+        You can also pass in a `Toplevel` object directly. */
+    format?: keyof typeof FORMATS | Toplevel<any, any>;
+    /** Encoding options for "json" or custom formats. */
+    encode?: EncodingOptions;
+    /** Automatic yield interval in milliseconds. Default is 20ms. */
+    autoyield?: number;
+}
+
+export type EncodingOptions = JSONEncodingOptions | PrologEncodingOptions | Record<string, unknown>;
+
+export interface JSONEncodingOptions {
+    /** Encoding for Prolog atoms. Default is "object". */
+    atoms?: "string" | "object";
+    /** Encoding for Prolog strings. Default is "string". */
+    strings?: "string" | "list";
+
+    /** Functor for compounds of arity 1 to be converted to booleans.
+        For example, `"{}"` to turn the Prolog term `{true}` into true ala Tau,
+        or `"@"` for SWI-ish behavior that uses `@(true)`. */
+    booleans?: string;
+    /** Functor for compounds of arity 1 to be converted to null.
+        For example, `"{}"` to turn the Prolog term `{null}` into null`. */
+    nulls?: string;
+    /** Functor for compounds of arity 1 to be converted to undefined.
+        For example, `"{}"` to turn the Prolog term `{undefined}` into undefined`. */
+    undefineds?: string;
+}
+
+export interface PrologEncodingOptions {
+    /** Include the fullstop "." in results. */
+    /** True by default. */
+    dot?: boolean;
+}
+
+/** Answer for the "json" format. */
+export type Answer = {
+    /** Standard output text (`user_output` stream in Prolog) */
+    stdout?: string;
+    /** Standard error text (`user_error` stream in Prolog) */
+    stderr?: string;
+} & (Success | Failure | ErrorReply)
+
+export interface Success {
+	result: "success";
+	answer: Substitution;
+	/** Standard output text (`user_output` stream in Prolog) */
+	stdout?: string;
+	/** Standard error text (`user_error` stream in Prolog) */
+	stderr?: string;
+	goal?: Goal;
+}
+
+export interface Failure {
+	result: "failure";
+}
+
+export interface ErrorReply {
+	result: "error";
+	error: Term;
+}
+
+/** Mapping of variable name → Term substitutions. */
+export type Substitution = Record<string, Term>;
+
+export type prolog_t = never;
+export type subquery_t = never;
+
+export type Ctrl = {
+	subq: Ptr<subquery_t>,
+	get subquery(): Ptr<subquery_t>,
+	alive: boolean,
+	stdout: (str: string) => void,
+	stderr: (str: string) => void,
+}
+
+interface Instance extends CanonicalInstance {
+    exports: Trealla;
+}
+
+interface Trealla extends ABI {
+    pl_query(pl: Ptr<prolog_t>, goal: Ptr<char_t>, subqptr: Ptr<Ptr<subquery_t>>, autoyield: int_t): bool_t;
+    pl_redo(pl: Ptr<prolog_t>): bool_t;
+    pl_done(pl: Ptr<prolog_t>): void;
+    get_status(pl: Ptr<prolog_t>): bool_t;
+    pl_did_yield(subquery: Ptr<subquery_t>): bool_t;
+    pl_yield_at(subquery: Ptr<subquery_t>, msec: int_t): void;
+    pl_consult(pl: Ptr<prolog_t>, str: Ptr<char_t>): bool_t;
+}
+
+export interface Thunk {
+    promise?: Promise<Term>;
+    value?: Term;
+    done: boolean;
+}
+
+export interface Task {
+	id: number;
+	promise: Promise<Tick | undefined> | null;
+	cancel: (() => void) | null;
+	query: AsyncGenerator<Tick, void, undefined>
+}
+
+export type Tick = {
+    task_id: number,
+    result: Answer & {goal: Goal} | undefined,
+    time: number,
+    depth: number
+}
+
 /** Prolog interpreter instance. */
 export class Prolog {
 	wasi;
-	instance;
-	ptr; // pointer to *prolog instance
+	instance!: Instance;
+	ptr: Ptr<prolog_t> = 0; // pointer to *prolog instance
 	n = 0;
 	taskcount = 0;
 	scratch = 0;
 	finalizers;
-	yielding = {};
-	procs = {};
-	tasks = new Map();
-	subqs = new Map();
-	spawning = new Map(); // **subq -> ctrl
+	yielding: Record<Ptr<subquery_t>, Thunk> = {};		// *subq → maybe promise
+	procs: Record<string, PredicateFunction<Atom> | PredicateFunction<Compound>> = {}; // pi → predicate
+	tasks = new Map<number, Task>();		            // id → task
+	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 		    // *subq → ctrl
+	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();   // **subq → ctrl
 
 	/**	Create a new Prolog interpreter instance. */
-	constructor(options = {}) {
+	constructor(options: Partial<PrologOptions> = {}) {
 		const {
 			library,
 			env,
@@ -45,10 +177,11 @@ export class Prolog {
 		} = options;
 		this.wasi = newWASI(library, env, quiet);
 		if ("FinalizationRegistry" in globalThis) {
-			this.finalizers = new FinalizationRegistry((task) => {
+			this.finalizers = new FinalizationRegistry((task: Ctrl) => {
 				if (task.alive) {
 					task.alive = false;
-					this.instance.exports.pl_done(task.subquery);
+					const pl_done = this.instance.exports.pl_done;
+					pl_done(task.subquery);
 					delete this.yielding[task.subquery];
 				}
 			})
@@ -59,19 +192,19 @@ export class Prolog {
 	async init() {
 		if (!initRuntime) await initInternal();
 
-		const imports = this.wasi.getImports(tpl);
+		const imports = this.wasi.getImports(tpl) as WebAssembly.Imports;
 		imports.trealla = {
 			"host-call": this._host_call.bind(this),
 			"host-resume": this._host_resume.bind(this)
 		};
-		this.instance = await WebAssembly.instantiate(tpl, imports);
+		this.instance = await WebAssembly.instantiate(tpl, imports) as Instance;
 
 		// run it once it initialize the global interpreter
 		const exit = this.wasi.start(this.instance);
 		if (exit !== 0) {
 			throw new Error("trealla: could not initialize interpreter");
 		}
-		const pl_global = this.instance.exports.pl_global;
+		const pl_global = this.instance.exports.pl_global as Function;
 		this.ptr = pl_global();
 
 		await this.registerPredicates(LIBRARY, "builtin");
@@ -83,7 +216,7 @@ export class Prolog {
 	 *  Call the `return()` method of the generator to kill it early if manually iterating with `next()`.
 	 *  Runtimes that support finalizers will make a best effort attempt to kill live but garbage-collected queries.
 	 **/
-	async* query(goal, options = {}) {
+	async* query(goal: string, options: QueryOptions = {}) {
 		if (!this.instance) await this.init();
 		const {
 			bind,
@@ -104,8 +237,8 @@ export class Prolog {
 		const _id = ++this.n;
 		const token = {};
 		
-		let stdoutbufs = [];
-		let stderrbufs = [];
+		let stdoutbufs: Uint8Array[] = [];
+		let stderrbufs: Uint8Array[] = [];
 		const readOutput = () => {
 			const stdout = this.wasi.getStdoutBuffer();
 			const stderr = this.wasi.getStderrBuffer();
@@ -126,9 +259,9 @@ export class Prolog {
 		const pl_did_yield = this.instance.exports.pl_did_yield;
 		const pl_yield_at = this.instance.exports.pl_yield_at;
 
-		let subqptr = realloc(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
+		let subqptr = realloc<Ptr<subquery_t>>(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
 		let readSubqPtr = () => {
-			const subq = subqptr ? indirect(this.instance, subqptr, autoyield) : NULL;
+			const subq = subqptr ? indirect(this.instance, subqptr) : NULL;
 			if (subq !== NULL) {
 				this.subqs.set(subq, ctrl);
 				this.spawning.delete(subqptr);
@@ -143,11 +276,11 @@ export class Prolog {
 				return this.subq;
 			},
 			alive: false,
-			stdout: function(str) {
+			stdout: function(str: string) {
 				if (!str) return;
 				stdoutbufs.push(new TextEncoder().encode(str));	
 			},
-			stderr: function(str) {
+			stderr: function(str: string) {
 				if (!str) return;
 				stderrbufs.push(new TextEncoder().encode(str));
 			}
@@ -199,9 +332,9 @@ export class Prolog {
 					try {
 						thunk.value = await thunk.promise;
 						readOutput();
-					} catch (err) {
-						console.error(err);
-						thunk.value = throwTerm(system_error("js_exception", err.toString(), piTerm("$host_resume", 1)));
+					} catch (error) {
+						console.error(error);
+						thunk.value = throwTerm(system_error("js_exception", `${error}`, piTerm("$host_resume", 1)));
 					}
 					thunk.done = true;
 					lastYield = Date.now();
@@ -228,7 +361,7 @@ export class Prolog {
 			} while(ctrl.alive = pl_redo(ctrl.subq) === TRUE)
 		} finally {
 			if (finalizing) {
-				this.finalizers.unregister(token);
+				this.finalizers!.unregister(token);
 			}
 
 			if (ctrl.subq !== NULL) {
@@ -244,7 +377,7 @@ export class Prolog {
 	}
 
 	/** Runs a query and returns a single solution, ignoring others. */
-	async queryOnce(goal, options) {
+	async queryOnce(goal: string, options?: QueryOptions) {
 		const q = this.query(goal, options);
 		try {
 			return (await q.next()).value;
@@ -255,7 +388,7 @@ export class Prolog {
 
 	/** Consult (load) a Prolog file with the given text content.
 	 *	Use fs to manipulate the filesystem. */
-	async consult(filename) {
+	async consult(filename: string) {
 		if (!this.instance) await this.init()
 
 		if (filename === "user") {
@@ -275,9 +408,8 @@ export class Prolog {
 		}
 	}
 
-	/** Consult (load) Prolog text.
-	 *  Takes a string or Uint8Array. */
-	async consultText(code) {
+	/** Consult (load) Prolog text. */
+	async consultText(code: string | Uint8Array) {
 		if (!this.instance) {
 			await this.init();
 		}
@@ -286,7 +418,7 @@ export class Prolog {
 		this.fs.removeFile(filename);
 	}
 
-	async consultTextInto(code, module = "user") {
+	async consultTextInto(code: string, module = "user") {
 		if (!this.instance) {
 			await this.init();
 		}
@@ -299,22 +431,18 @@ export class Prolog {
 		// console.log("loaded:", module, code);
 	}
 
-	async register(name, arity, func, module = "user") {
-		if (typeof func !== "function")
-			throw new Error("trealla: register predicate argument is not a function");
-
-		return await this.registerPredicate(module, new Predicate(name, arity, func));
-	}
-
-	async registerPredicate(pred, module = "user") {
+	async register(pred: Predicate<Goal> | Predicate<Goal>[], module = "user") {
+        if (Array.isArray(pred))
+            return this.registerPredicates(pred, module);
 		if (!(pred instanceof Predicate))
 			throw new Error("trealla: predicate is not type Predicate");
 
 		this.procs[pred.pi] = pred.fn;
+		const shim = pred.shim();
 		await this.consultTextInto(shim, module);
 	}
 
-	async registerPredicates(predicates, module = "user") {
+	async registerPredicates(predicates: (Predicate<Atom>|Predicate<Compound>)[], module = "user") {
 		let shim = "";
 		for (const pred of predicates) {
 			this.procs[pred.pi] = pred.fn;
@@ -323,7 +451,7 @@ export class Prolog {
 		await this.consultTextInto(shim, module);
 	}
 
-	async writeScratchFile(code) {
+	async writeScratchFile(code: string | Uint8Array) {
 		const id = ++this.scratch;
 		const filename = `/tmp/scratch${id}.pl`;
 		const file = this.fs.open(filename, { write: true, create: true });
@@ -339,7 +467,7 @@ export class Prolog {
 		return filename;
 	}
 
-	addTask(query) {
+	addTask(query: AsyncGenerator<Answer & {goal: Goal}, void, unknown>) {
 		const id = this.taskcount++;
 		const q = this.runTask(id, query);
 		this.tasks.set(id, {
@@ -351,7 +479,7 @@ export class Prolog {
 		return id;
 	}
 
-	async* runTask(id, query) {
+	async* runTask(id: number, query: AsyncGenerator<Answer & {goal: Goal}, void, unknown>): AsyncGenerator<Tick, void, unknown> {
 		let choice = 0;
 		try {
 			for await (const x of query) {
@@ -362,36 +490,20 @@ export class Prolog {
 		}
 	}
 
-	tickTask(task) {
+	tickTask(task: Task) {
 		if (!task.promise) {
 			task.promise = new Promise(async (resolve) => {
 				task.cancel = () => {
 					task.query.return();
-					resolve();
+					resolve(Promise.resolve(undefined));
 				};
 				const {value} = await task.query.next();
-				resolve(value);
+				resolve(value ?? undefined);
 				task.promise = null;
 				task.cancel = null;
 			});
 		}
 		return task.promise;
-	}
-
-	async tick() {
-		const ps = Array.from(this.tasks.values()).
-			map(task => this.tickTask(task));
-
-		if (ps.length === 0)
-			return null;
-
-		try {
-			let next = await Promise.any(ps);
-			return next;
-		} catch (err) {
-			console.error(err);
-			return null;
-		}
 	}
 
 	/**	wasmer-js virtual filesystem.
@@ -401,7 +513,7 @@ export class Prolog {
 		return this.wasi.fs;
 	}
 
-	ctrl(subquery) {
+	ctrl(subquery: Ptr<subquery_t>) {
 		const ctrl = this.subqs.get(subquery);
 		if (ctrl)
 			return ctrl;
@@ -409,16 +521,17 @@ export class Prolog {
 			if (ctrl.subquery === subquery)
 				return ctrl;
 		}
+		throw new Error("trealla: internal error, couldn't find ctrl for subquery");
 	}
 
-	_host_call(subquery, ptr, msgsize, replyptrptr, replysizeptr) {
+	_host_call(subquery: Ptr<subquery_t>, ptr: Ptr<char_t>, msgsize: size_t, replyptrptr: Ptr<Ptr<char_t>>, replysizeptr: size_t) {
 		const raw = readString(this.instance, ptr, msgsize);
-		const goal = fromJSON(raw);
+		const goal = fromJSON(raw) as Goal;
 		const ctrl = this.ctrl(subquery);
 		let result;
 		try {
 			const fn = this.procs[goal.pi] ?? sys_missing_n;
-			const x = fn(this, subquery, goal, ctrl);
+			const x = fn(this, subquery, goal as any, ctrl);
 			if (x instanceof Promise) {
 				this.yielding[subquery] = {promise: x, done: false};
 				return WASM_HOST_CALL_YIELD;
@@ -426,7 +539,7 @@ export class Prolog {
 			result = x ? toProlog(x) : "true";
 		} catch(error) {
 			console.error(error);
-			result = throwTerm(system_error("js_exception", error.toString(), goal.piTerm)).toProlog();
+			result = throwTerm(system_error("js_exception", `${error}`, goal.piTerm)).toProlog();
 		}
 		const reply = new CString(this.instance, result);
 		writeUint32(this.instance, replysizeptr, reply.size-1);
@@ -434,7 +547,7 @@ export class Prolog {
 		return WASM_HOST_CALL_OK;
 	}
 
-	_host_resume(subquery, replyptrptr, replysizeptr) {
+	_host_resume(subquery: Ptr<subquery_t>, replyptrptr: Ptr<Ptr<char_t>>, replysizeptr: Ptr<size_t>) {
 		const task = this.yielding[subquery];
 		if (!task) {
 			return WASM_HOST_CALL_ERROR;
@@ -449,7 +562,7 @@ export class Prolog {
 			result = x ? toProlog(x) : "true";
 		} catch(error) {
 			console.error(error);
-			result = throwTerm(system_error("js_exception", error.toString(), goal.piTerm)).toProlog();
+			result = throwTerm(system_error("js_exception", `${error}`, piTerm("host_rpc", 2))).toProlog();
 		}
 		const reply = new CString(this.instance, result);
 		writeUint32(this.instance, replysizeptr, reply.size-1);
@@ -463,7 +576,7 @@ const WASM_HOST_CALL_ERROR = 0;
 const WASM_HOST_CALL_OK = 1;
 const WASM_HOST_CALL_YIELD = 2;
 
-function newWASI(library, env, quiet) {
+function newWASI(library?: string, env?: Record<string, string>, quiet?: boolean) {
 	const args = ["tpl", "--ns", "-g", "use_module(user), halt"];
 	if (library) args.push("--library", library);
 	if (quiet) args.push("-q");
@@ -477,7 +590,7 @@ function newWASI(library, env, quiet) {
 	return wasi;
 }
 
-function joinBuffers(bufs) {
+function joinBuffers(bufs: Uint8Array[]) {
 	if (bufs.length === 0) {
 		return new Uint8Array(0);
 	}

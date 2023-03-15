@@ -19,7 +19,8 @@
     "clean": "rm -f libtpl.wasm trealla.js trealla.js.map",
     "update": "git submodule update --init --recursive",
     "compile": "cd trealla && make -j8 clean libtpl-js && mv libtpl-js.wasm ../libtpl.wasm",
-    "build": "node make.cjs"
+    "build": "node make.cjs",
+    "postbuild": "tsc"
   },
   "keywords": [
     "prolog",
@@ -38,6 +39,7 @@
     "@wasmer/wasi": "^1.2.0"
   },
   "devDependencies": {
+    "@types/node": "^18.15.3",
     "esbuild": "^0.15.10",
     "node-stdlib-browser": "^1.2.0"
   }
