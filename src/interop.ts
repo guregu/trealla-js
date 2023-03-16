@@ -1,9 +1,11 @@
-import { Compound, Atom, Variable, Literal, toProlog, fromJSON, piTerm, Goal, Term, Atomic, isCompound, isList, isCallable, isNumber, isTerm, PredicateIndicator, Functor, Args, isVariable } from './term';
+import { Compound, Atom, Variable, toProlog, fromJSON, piTerm, Goal, Term, Atomic,
+	isCompound, isList, isCallable, isNumber, isTerm, PredicateIndicator, Functor } from './term';
 import { Ptr } from './c';
 import { Ctrl, Prolog, subquery_t, Task, Tick } from './prolog';
 
 export type PredicateFunction<G extends Goal> =
-	(pl: Prolog, subq: Ptr<subquery_t>, goal: G, ctrl: Ctrl) => Continuation<G> | Promise<Continuation<G>> | AsyncIterable<Continuation<G>>;
+	(pl: Prolog, subq: Ptr<subquery_t>, goal: G, ctrl: Ctrl) =>
+		Continuation<G> | Promise<Continuation<G>> | AsyncIterable<Continuation<G>>;
 
 export type Continuation<G extends Goal> = G | boolean;
 
@@ -27,7 +29,7 @@ export class Predicate<G extends Goal> {
 		const x = this.proc(pl, subquery, goal, ctrl);
 		try {
 			if (typeof x === "object" && Symbol.asyncIterator in x) {
-				yield* x;
+				yield yield* x;
 			} else {
 				if (x instanceof Promise) {
 					yield await x;
@@ -73,23 +75,6 @@ export const sleep_1 = new Predicate<Compound<"sleep", [number]>>(
 		await new Promise(resolve => setTimeout(resolve, time * 1000));
 		return true;
 	});
-
-export const betwixt_3 = new Predicate<Compound<"betwixt", [number, number, number | Variable]>>(
-		"betwixt", 3,
-		async function*(_pl, _subquery, goal) {
-			const [min, max, n] = goal.args;
-			if (!isNumber(min))
-				throw type_error("number", min, goal.piTerm);
-			if (!isNumber(max))
-				throw type_error("number", max, goal.piTerm);
-
-			for (let i = isNumber(n) ? n : min; i <= max; i++) {
-				goal.args[0] = i;
-				if (i == max)
-					return goal;
-				yield goal;
-			}
-		});
 
 export const delay_1 = new Predicate<Compound<"delay", [number]>>(
 	"delay", 1,
@@ -449,14 +434,13 @@ export const LIBRARY: Predicate<any>[] = [
 	console_log_1,
 	js_eval_2,
 	js_eval_json_2,
-	// task_1,
 	sys_await_some_3,
 	future_2,
 	sys_await_1,
 	sys_await_all_1,
 	await_any_3,
 	future_cancel_1,
-	betwixt_3,
+	// betwixt_3,
 ];
 
 const EVAL_BINDINGS = {
@@ -468,6 +452,3 @@ const EVAL_BINDINGS = {
 	fromJSON: fromJSON,
 	piTerm: piTerm
 };
-
-const true_0 = new Atom("true");
-const fail_0 = new Atom("fail");

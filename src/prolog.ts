@@ -134,7 +134,7 @@ interface Trealla extends ABI {
 }
 
 export interface Thunk {
-    promise?: AsyncGenerator<Continuation<Goal>, Continuation<Goal>, void>;
+    cont?: AsyncGenerator<Continuation<Goal>, Continuation<Goal>, void>;
     value?: Goal | boolean;
     done: boolean;
 }
@@ -163,7 +163,7 @@ export class Prolog {
 	scratch = 0;
 	finalizers;
 	yielding: Record<Ptr<subquery_t>, Thunk> = {};		// *subq → maybe promise
-	procs: Record<string, Predicate<Goal>> = {}; // pi → predicate
+	procs: Record<string, Predicate<any>> = {}; // pi → predicate
 	tasks = new Map<number, Task>();		            // id → task
 	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 		    // *subq → ctrl
 	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();   // **subq → ctrl
@@ -330,8 +330,8 @@ export class Prolog {
 						continue
 					}
 					try {
-						if (thunk.promise) {
-							const {value, done} = await thunk.promise.next();
+						if (thunk.cont) {
+							const {value, done} = await thunk.cont.next();
 							readOutput();
 							thunk.value = value ?? undefined;
 							thunk.done = done ?? true;
@@ -437,7 +437,7 @@ export class Prolog {
 		// console.log("loaded:", module, code);
 	}
 
-	async register(pred: Predicate<Goal> | Predicate<Goal>[], module = "user") {
+	async register<G extends Goal>(pred: Predicate<G> | Predicate<Goal>[], module = "user") {
         if (Array.isArray(pred))
             return this.registerPredicates(pred, module);
 		if (!(pred instanceof Predicate))
@@ -557,7 +557,7 @@ export class Prolog {
 
 		if (cont) {
 			this.yielding[subquery] = {
-				promise: cont,
+				cont: cont,
 				done: false
 			};
 		}

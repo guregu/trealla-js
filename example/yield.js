@@ -17,5 +17,5 @@ console.log(await pl.queryOnce(`js_eval("return new TextEncoder().encode('arbitr
 // expect: error(js_error("ReferenceError: should_throw_a_js_error is not defined"),js_eval/1).
 console.log(await pl.queryOnce(`js_eval("should_throw_a_js_error")`, {format: "prolog"}));
 
-pl.queryOnce(`sleep(1), write('CATS: All your base are belong to us.')`, {format: "prolog"}).then(x => console.log(x));
+pl.queryOnce(`sleep(1), write('CATS: All your base are belong to us.\\n')`, {format: "prolog"}).then(x => console.log(x));
 console.log("Operator: Main screen turn on.");
