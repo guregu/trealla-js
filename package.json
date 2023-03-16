@@ -21,7 +21,7 @@
     "update": "git submodule update --init --recursive",
     "compile": "cd trealla && make -j8 clean libtpl-js && mv libtpl-js.wasm ../libtpl.wasm",
     "build": "node make.cjs",
-    "watch": "nodemon --exec 'npm run build && cp trealla.js example/browser/trealla.js' --ignore 'example' --watch 'src' --ext ts"
+    "watch": "nodemon --exec 'npm run build && cp trealla.{js,js.map} example/browser/' --ignore 'example' --watch 'src' --watch 'libtpl.wasm' --ext ts,wasm"
   },
   "keywords": [
     "prolog",
@@ -43,6 +43,7 @@
     "@types/node": "^18.15.3",
     "esbuild": "^0.15.10",
     "esbuild-plugin-d.ts": "^1.1.0",
-    "node-stdlib-browser": "^1.2.0"
+    "node-stdlib-browser": "^1.2.0",
+    "typescript": "^4.9.5"
   }
 }

@@ -27,6 +27,8 @@ export const FORMATS = {
 				jsonEnd = stdout.lastIndexOf(125);			// }
 			}
 
+			// console.log("msg:", new TextDecoder().decode(stdout));
+
 			const dec = new TextDecoder();
 			const json = dec.decode(stdout.slice(jsonStart, jsonEnd));
 			const msg = JSON.parse(json, reviver(opts));

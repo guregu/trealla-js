@@ -1,22 +1,22 @@
-import { Compound, Atom, Variable, Literal, toProlog, fromJSON, piTerm, Goal, Term, Atomic, isCompound, isList, isCallable, isNumber } from './term';
+import { Compound, Atom, Variable, Literal, toProlog, fromJSON, piTerm, Goal, Term, Atomic, isCompound, isList, isCallable, isNumber, isTerm, PredicateIndicator, Functor, Args, isVariable } from './term';
 import { Ptr } from './c';
 import { Ctrl, Prolog, subquery_t, Task, Tick } from './prolog';
 
 export type PredicateFunction<G extends Goal> =
-	((pl: Prolog, subq: Ptr<subquery_t>, goal: G, ctrl: Ctrl) => Continuation<G>) | AsyncIterable<G | boolean>;
+	(pl: Prolog, subq: Ptr<subquery_t>, goal: G, ctrl: Ctrl) => Continuation<G> | Promise<Continuation<G>> | AsyncIterable<Continuation<G>>;
 
-export type Continuation<G extends Goal> = G | boolean | AsyncContinuation<G>;
-export type AsyncContinuation<G extends Goal> = Promise<G | boolean>;
+export type Continuation<G extends Goal> = G | boolean;
 
 export class Predicate<G extends Goal> {
 	name;
 	arity;
 	proc;
-
-	constructor(name: string, arity: number, fn: PredicateFunction<G>) {
+	async;
+	constructor(name: string, arity: number, fn: PredicateFunction<G>, async = true) {
 		this.name = name;
 		this.arity = arity;
 		this.proc = fn;
+		this.async = async;
 	}
 
 	// call(pl: Prolog, subquery: number, goal: G, ctrl: any) {
@@ -24,10 +24,23 @@ export class Predicate<G extends Goal> {
 	// }
 
 	async* eval(pl: Prolog, subquery: number, goal: G, ctrl: Ctrl) {
-		if (Symbol.asyncIterator in this.proc)
-			yield* this.proc;
-		else
-			yield this.proc(pl, subquery, goal, ctrl);
+		const x = this.proc(pl, subquery, goal, ctrl);
+		try {
+			if (typeof x === "object" && Symbol.asyncIterator in x) {
+				yield* x;
+			} else {
+				if (x instanceof Promise) {
+					yield await x;
+				} else {
+					yield x;
+				}
+			}
+		} catch (error) {
+			if (isTerm(error))
+				return new Compound("throw", [error]);
+			return system_error("js_exception", `${error}`, goal.piTerm)
+		}
+		return false;
 	}
 
 	shim() {
@@ -45,61 +58,75 @@ export class Predicate<G extends Goal> {
 	get piTerm() {
 		return piTerm(this.name, this.arity);
 	}
-	get sync() {
-		return typeof this.proc == "function" && !(Symbol.asyncIterator in this.proc);
-	}
 }
 
-type PromiseTerm = Compound & {functor: "$promise", args: [number, Goal]};
-
-export const sleep_1 = new Predicate<Compound>(
+type PromiseTerm = Compound<"$promise", [number, Goal]> /* & {functor: "$promise"} */;
+export const sleep_1 = new Predicate<Compound<"sleep", [number]>>(
 	"sleep", 1,
 	async function(_pl, _subquery, goal) {
-		const time = goal?.args[0];
+		const time = goal.args[0];
 		if (typeof time !== "number")
-			return throwTerm(type_error("number", time, goal.piTerm));
+			throw type_error("number", time, goal.piTerm);
 		if (time < 0)
-			return throwTerm(domain_error("not_less_than_zero", time, goal.piTerm));
+			throw domain_error("not_less_than_zero", time, goal.piTerm);
 
 		await new Promise(resolve => setTimeout(resolve, time * 1000));
 		return true;
 	});
 
-export const delay_1 = new Predicate<Compound>(
+export const betwixt_3 = new Predicate<Compound<"betwixt", [number, number, number | Variable]>>(
+		"betwixt", 3,
+		async function*(_pl, _subquery, goal) {
+			const [min, max, n] = goal.args;
+			if (!isNumber(min))
+				throw type_error("number", min, goal.piTerm);
+			if (!isNumber(max))
+				throw type_error("number", max, goal.piTerm);
+
+			for (let i = isNumber(n) ? n : min; i <= max; i++) {
+				goal.args[0] = i;
+				if (i == max)
+					return goal;
+				yield goal;
+			}
+		});
+
+export const delay_1 = new Predicate<Compound<"delay", [number]>>(
 	"delay", 1,
 	async function(_pl, _subquery, goal) {
 		const time = goal.args[0];
 		if (typeof time !== "number")
-			return throwTerm(type_error("number", time, goal.piTerm));
+			throw type_error("number", time, goal.piTerm);
 		if (time < 0)
-			return throwTerm(domain_error("not_less_than_zero", time, goal.piTerm));
+			throw domain_error("not_less_than_zero", time, goal.piTerm);
 	
 		await new Promise(resolve => setTimeout(resolve, time));
 		return true;
 	}
 );
 
-export const console_log_1 = new Predicate<Compound>(
+export const console_log_1 = new Predicate<Compound<"console_log", [string]>>(
 	"console_log", 1,
 	function(_pl, _subquery, goal) {
 		console.log(goal.args[0]);
 		return true;
-	}
+	},
+	false
 );
 
-export const js_eval_2 = new Predicate<Compound>(
+export const js_eval_2 = new Predicate<Compound<"js_eval", [string, Term]>>(
 	"js_eval", 2,
-	async function(pl, subquery, goal): Promise<Compound | true> {
+	async function(pl, subquery, goal) {
 		const expr = goal.args[0];
 		if (typeof expr !== "string")
-			return throwTerm(type_error("chars", expr, goal.piTerm));
+			throw type_error("chars", expr, goal.piTerm);
 
 		let value;
 		try {
 			value = await js_eval(pl, subquery, goal, expr);
 		} catch (error) {
 			console.error(error);
-			return throwTerm(system_error("js_exception", `${error}`, goal.piTerm));
+			throw system_error("js_exception", `${error}`, goal.piTerm);
 		}
 
 		if (!value)
@@ -109,19 +136,19 @@ export const js_eval_2 = new Predicate<Compound>(
 	}
 );
 
-export const js_eval_json_2 = new Predicate<Compound>(
+export const js_eval_json_2 = new Predicate<Compound<"js_eval_json", [string, Term]>>(
 	"js_eval_json", 2,
 	async function(pl, subquery, goal) {
 		const expr = goal.args[0];
 		if (typeof expr !== "string")
-			return throwTerm(type_error("chars", expr, goal.piTerm));
+			throw type_error("chars", expr, goal.piTerm);
 
 		let value;
 		try {
 			value = await js_eval(pl, subquery, goal, expr);
 		} catch (error) {
 			console.error(error);
-			return throwTerm(system_error("js_exception", `${error}`, goal.piTerm));
+			throw system_error("js_exception", `${error}`, goal.piTerm);
 		}
 
 		if (!value)
@@ -132,9 +159,9 @@ export const js_eval_json_2 = new Predicate<Compound>(
 	}
 );
 
-async function js_eval(pl: Prolog, subquery: Ptr<subquery_t>, goal: Compound, expr: Term) {
+async function js_eval(pl: Prolog, subquery: Ptr<subquery_t>, goal: Goal, expr: Term) {
 	if (typeof expr !== "string")
-		return throwTerm(type_error("chars", expr, goal.piTerm));
+		throw type_error("chars", expr, goal.piTerm);
 
 	let value = new Function('pl', 'subquery', 'goal', 'trealla', expr)(pl, subquery, goal, EVAL_BINDINGS);
 
@@ -144,12 +171,12 @@ async function js_eval(pl: Prolog, subquery: Ptr<subquery_t>, goal: Compound, ex
 	return value;
 }
 
-export const future_2 = new Predicate<Compound>(
+export const future_2 = new Predicate<Compound<"future", [Goal, PromiseTerm]>>(
 	"future", 2,
 	function(pl, _subq, goal) {
 		const call = goal.args[0];
 		if (!isCallable(call))
-			return throwTerm(type_error("callable", call, goal.piTerm));
+			throw type_error("callable", call, goal.piTerm);
 
 		const goalvar = new Variable("__GOAL");
 		const ask = new Compound(",", [new Compound("=", [goalvar, goal.args[0]]), goalvar]);
@@ -160,50 +187,49 @@ export const future_2 = new Predicate<Compound>(
 	}
 );
 
-export const sys_await_1 = new Predicate<Compound>(
+export const sys_await_1 = new Predicate<Compound<"$await", [PromiseTerm]>>(
 	"$await", 1,
 	async function(pl, _subq, goal, ctrl) {
 		const token: Term = goal.args[0];
-		if (!isCompound(token, "$promise")) {
-			return throwTerm(type_error("promise", token, goal.piTerm));
+		if (!isCompound(token, "$promise", 2)) {
+			throw type_error("promise", token, goal.piTerm);
 		}
 		const id = token.args[0];
 		if (!isNumber(id)) {
-			return throwTerm(type_error("integer", token, goal.piTerm));
+			throw type_error("integer", token, goal.piTerm);
 		}
 		const task: Task | undefined = pl.tasks.get(id);
 		if (!task) {
 			return false;
 		}
 
-		const reply: Tick | undefined = await pl.tickTask(task);
-		if (!reply || !reply.result) {
+		const tick: Tick | undefined = await pl.tickTask(task);
+		if (!tick || !tick.answer) {
 			return false;
 		}
 
-		if (reply.result.stdout)
-			ctrl.stdout(reply.result.stdout);
-		if (reply.result.stderr)
-			ctrl.stderr(reply.result.stderr);
+		if (tick.answer.stdout)
+			ctrl.stdout(tick.answer.stdout);
+		if (tick.answer.stderr)
+			ctrl.stderr(tick.answer.stderr);
 
-		// TODO: change to .status...
-		if (reply.result.result === "failure" || !reply.result.goal)
+		if (tick.answer.status === "failure" || !tick.answer.goal)
 			return false;
-		if (reply.result.result === "error")
-			return throwTerm(reply.result.error);
+		if (tick.answer.status === "error")
+			throw tick.answer.error;
 
-		token.args[1] = reply.result.goal;
+		token.args[1] = tick.answer.goal;
 		return goal;
 	}
 );
 
-export const await_any_3 = new Predicate<Compound>(
+export const await_any_3 = new Predicate<Compound<"await_any", [PromiseTerm[], Variable|PromiseTerm, Variable|PromiseTerm[]]>>(
 	// '$await_any'(Ps, Winner, Rest)
 	"await_any", 3,
 	async function(pl, _subq, goal, ctrl) {
 		const tokens = goal.args[0];
 		if (!isList(tokens)) {
-			return throwTerm(type_error("list", tokens, goal.piTerm));
+			throw type_error("list", tokens, goal.piTerm);
 		}
 		const ticks = tokens.map(token => {
 			if (!isCompound(token, "$promise")) {
@@ -235,24 +261,24 @@ export const await_any_3 = new Predicate<Compound>(
 				resolve(x);
 			}
 		}));
-		const reply = await Promise.any(ps) as Tick;
-		if (!reply)
+		const tick = await Promise.any(ps) as Tick;
+		if (!tick)
 			return false;
 		
-		const win = (tokens as PromiseTerm[]).find(x => x.args[0] === reply.task_id) as PromiseTerm;
-		const rest = (tokens as PromiseTerm[]).filter(x => x.args[0] !== reply.task_id);
+		const win = tokens.find(x => x.args[0] === tick.task_id) as PromiseTerm;
+		const rest = tokens.filter(x => x.args[0] !== tick.task_id);
 
-		if (reply.result?.stdout)
-			ctrl.stdout(reply.result.stdout);
-		if (reply.result?.stderr)
-			ctrl.stderr(reply.result.stderr);
+		if (tick.answer?.stdout)
+			ctrl.stdout(tick.answer.stdout);
+		if (tick.answer?.stderr)
+			ctrl.stderr(tick.answer.stderr);
 
-		if (!reply.result || reply.result.result === "failure")
+		if (!tick.answer || tick.answer.status === "failure")
 			return false;
-		if (reply.result.result === "error")
-			return throwTerm(reply.result.error);
+		if (tick.answer.status === "error")
+			throw tick.answer.error;
 
-		win.args[1] = reply.result.goal;
+		win.args[1] = tick.answer.goal;
 		// tokens[i].args[2] = new Variable("_");
 		goal.args[1] = win;
 		goal.args[2] = rest;
@@ -260,16 +286,16 @@ export const await_any_3 = new Predicate<Compound>(
 	}
 );
 
-export const future_cancel_1 = new Predicate<Compound>(
+export const future_cancel_1 = new Predicate<Compound<Functor, [PromiseTerm]>>(
 	"future_cancel", 1,
 	function(pl, _subq, goal, _ctrl) {
 		const token = goal.args[0];
 		if (!isCompound(token, "$promise")) {
-			return throwTerm(type_error("promise", token, goal.piTerm));
+			throw type_error("promise", token, goal.piTerm);
 		}
 		const id = token.args[0];
 		if (!isNumber(id)) {
-			return throwTerm(type_error("integer", token, goal.piTerm));
+			throw type_error("integer", token, goal.piTerm);
 		}
 		const task = pl.tasks.get(id);
 		if (!task) {
@@ -288,22 +314,22 @@ export const future_cancel_1 = new Predicate<Compound>(
 	}
 );
 
-export const sys_await_all_1 = new Predicate<Compound>(
+export const sys_await_all_1 = new Predicate<Compound<Functor, [PromiseTerm[]]>>(
 	"$await_all", 1,
 	async function(pl, _subq, goal, ctrl) {
 		const tokens = goal.args[0];
 		if (!isList(tokens)) {
-			return throwTerm(type_error("list", tokens, goal.piTerm));
+			throw type_error("list", tokens, goal.piTerm);
 		}
 		for (const token of tokens) {
 			if (!isCompound(token, "$promise")) {
-				return throwTerm(type_error("promise", token, goal.piTerm));
+				throw type_error("promise", token, goal.piTerm);
 			}
 			if (!isNumber(token.args[0])) {
-				return throwTerm(type_error("integer", token.args[0], goal.piTerm));
+				throw type_error("integer", token.args[0], goal.piTerm);
 			}
 		}
-		const ps = (tokens as Compound[]).map(token => {
+		const ps = tokens.map(token => {
 			const id = token.args[0] as number;
 			const task = pl.tasks.get(id);
 			if (!task) return;
@@ -315,17 +341,17 @@ export const sys_await_all_1 = new Predicate<Compound>(
 			if (!reply)
 				return false;
 
-			if (reply.result?.stdout)
-				ctrl.stdout(reply.result.stdout);
-			if (reply.result?.stderr)
-				ctrl.stderr(reply.result.stderr);
+			if (reply.answer?.stdout)
+				ctrl.stdout(reply.answer.stdout);
+			if (reply.answer?.stderr)
+				ctrl.stderr(reply.answer.stderr);
 
-			if (!reply.result || reply.result.result === "failure")
+			if (!reply.answer || reply.answer.status === "failure")
 				return false;
-			if (reply.result.result === "error")
-				return throwTerm(reply.result.error);
+			if (reply.answer.status === "error")
+				throw reply.answer.error;
 
-			(tokens as Compound[])[i].args[1] = reply.result.goal;
+			tokens[i].args[1] = reply.answer.goal;
 		}
 
 		return goal;
@@ -334,19 +360,19 @@ export const sys_await_all_1 = new Predicate<Compound>(
 	
 // TODO: let predicates be async generators?
 // '$await_some'(Fs, Fs_OK, Fs_Done)
-export const sys_await_some_3 = new Predicate<Compound>(
+export const sys_await_some_3 = new Predicate<Compound<Functor, [PromiseTerm[], Variable|PromiseTerm[], PromiseTerm[]]>>(
 	"$await_some", 3,
 	async function(pl, _subq, goal, ctrl) {
 		const tokens = goal.args[0];
 		if (!isList(tokens)) {
-			return throwTerm(type_error("list", tokens, goal.piTerm));
+			throw type_error("list", tokens, goal.piTerm);
 		}
 		for (const token of tokens) {
 			if (!isCompound(token, "$promise")) {
-				return throwTerm(type_error("promise", token, goal.piTerm));
+				throw type_error("promise", token, goal.piTerm);
 			}
 			if (!isNumber(token.args[0])) {
-				return throwTerm(type_error("integer", token.args[0], goal.piTerm));
+				throw type_error("integer", token.args[0], goal.piTerm);
 			}
 		}
 		const ps = (tokens as PromiseTerm[]).map(token => {
@@ -364,25 +390,25 @@ export const sys_await_some_3 = new Predicate<Compound>(
 		const done = [];
 		for (let i = 0; i < replies.length; i++) {
 			const reply = replies[i];
-			const result = replies[i]?.result;
+			const result = replies[i]?.answer;
 			if (!reply) {
 				done.push(tokens[i]);
 				continue;
 			}
 
-			if (result?.result === "error") {
-				return throwTerm(result.error);
-			} else if (!result || result?.result === "failure") {
+			if (result?.status === "error") {
+				throw result.error;
+			} else if (!result || result?.status === "failure") {
 				done.push(tokens[i]);
 			} else if (result?.goal) {
-				(tokens as Compound[])[i].args[1] = result.goal;
+				tokens[i].args[1] = result.goal;
 				ok.push(tokens[i]);
 			}
 
-			if (reply.result?.stdout)
-				ctrl.stdout(reply.result.stdout);
-			if (reply.result?.stderr)
-				ctrl.stderr(reply.result.stderr);
+			if (reply.answer?.stdout)
+				ctrl.stdout(reply.answer.stdout);
+			if (reply.answer?.stderr)
+				ctrl.stderr(reply.answer.stderr);
 		}
 
 		if (ok.length === 0)
@@ -394,26 +420,26 @@ export const sys_await_some_3 = new Predicate<Compound>(
 	});
 
 export function sys_missing_n(_pl: Prolog, _subq: Ptr<subquery_t>, goal: Goal) {
-	return throwTerm(existence_error("procedure", goal.piTerm, piTerm("host_rpc", 1)))
+	throw existence_error("procedure", goal.piTerm, piTerm("host_rpc", 1));
 }
 
 export function throwTerm(ball: Term) {
 	return new Compound("throw", [ball]);
 }
 
-export function type_error(type: string, value: Term, context: Compound) {
+export function type_error(type: string, value: Term, context: PredicateIndicator) {
 	return new Compound("error", [new Compound("type_error", [type, value]), context]);
 }
 
-export function domain_error(type: string, value: Term, context: Compound) {
+export function domain_error(type: string, value: Term, context: PredicateIndicator) {
 	return new Compound("error", [new Compound("domain_error", [type, value]), context]);
 }
 
-export function existence_error(type: string, value: Term, context: Compound) {
+export function existence_error(type: string, value: Term, context: PredicateIndicator) {
 	return new Compound("error", [new Compound("existence_error", [type, value]), context]);
 }
 
-export function system_error(type: string, value: Term, context: Compound) {
+export function system_error(type: string, value: Term, context: PredicateIndicator) {
 	return new Compound("error", [new Compound("system_error", [type, value]), context]);
 }
 
@@ -429,7 +455,8 @@ export const LIBRARY: Predicate<any>[] = [
 	sys_await_1,
 	sys_await_all_1,
 	await_any_3,
-	future_cancel_1
+	future_cancel_1,
+	betwixt_3,
 ];
 
 const EVAL_BINDINGS = {

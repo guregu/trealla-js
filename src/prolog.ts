@@ -4,7 +4,7 @@ import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, WASI as CanonicalInstance, ABI, int_t, char_t, bool_t, size_t } from './c';
 import { FORMATS, Toplevel } from './toplevel';
 import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term } from './term';
-import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, PredicateFunction, Continuation, AsyncContinuation } from './interop';
+import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, Continuation } from './interop';
 // @ts-ignore
 import tpl_wasm from '../libtpl.wasm';
 
@@ -87,7 +87,7 @@ export type Answer = {
 } & (Success | Failure | ErrorReply)
 
 export interface Success {
-	result: "success";
+	status: "success";
 	answer: Substitution;
 	/** Standard output text (`user_output` stream in Prolog) */
 	stdout?: string;
@@ -97,11 +97,11 @@ export interface Success {
 }
 
 export interface Failure {
-	result: "failure";
+	status: "failure";
 }
 
 export interface ErrorReply {
-	result: "error";
+	status: "error";
 	error: Term;
 }
 
@@ -134,7 +134,7 @@ interface Trealla extends ABI {
 }
 
 export interface Thunk {
-    promise?: AsyncGenerator<Goal | boolean, undefined | void, void>;
+    promise?: AsyncGenerator<Continuation<Goal>, Continuation<Goal>, void>;
     value?: Goal | boolean;
     done: boolean;
 }
@@ -148,7 +148,7 @@ export interface Task {
 
 export type Tick = {
     task_id: number,
-    result: Answer & {goal: Goal} | undefined,
+    answer: Answer & {goal: Goal} | undefined,
     time: number,
     depth: number
 }
@@ -489,7 +489,7 @@ export class Prolog {
 		let choice = 0;
 		try {
 			for await (const x of query) {
-				yield {task_id: id, result: x, time: Date.now(), depth: choice++};
+				yield {task_id: id, answer: x, time: Date.now(), depth: choice++};
 			}
 		} finally {
 			this.tasks.delete(id);
@@ -530,20 +530,20 @@ export class Prolog {
 		throw new Error("trealla: internal error, couldn't find ctrl for subquery");
 	}
 
-	_host_call(subquery: Ptr<subquery_t>, ptr: Ptr<char_t>, msgsize: size_t, replyptrptr: Ptr<Ptr<char_t>>, replysizeptr: size_t) {
+	_host_call(subquery: Ptr<subquery_t>, ptr: Ptr<char_t>, msgsize: size_t, replyptrptr: Ptr<Ptr<char_t>>, replysizeptr: size_t): HostCallReply {
 		const raw = readString(this.instance, ptr, msgsize);
 		const goal = fromJSON(raw) as Goal;
 		const ctrl = this.ctrl(subquery);
 		let result;
-		let cont: AsyncGenerator<Goal | boolean, undefined | void, void> | undefined;
+		let cont: AsyncGenerator<Goal | boolean, Continuation<Goal>, void> | undefined;
 		try {
 			const pred = this.procs[goal.pi];
 			if (!pred) {
 				result = sys_missing_n(this, subquery, goal);
-			} else if (pred.sync && typeof pred.proc === "function") {
+			} else if (!pred.async) {
 				const value = pred.proc(this, subquery, goal, ctrl);
 				if (value instanceof Promise) {
-					cont = async function* () { yield value; }();
+					cont = async function* () { return await value; }() as typeof cont;
 				} else {
 					result = value;
 				}
@@ -564,7 +564,7 @@ export class Prolog {
 
 		let reply: CString;
 		if (typeof result === "string") {
-			reply = new CString(this.instance, result);
+			reply = new CString(this.instance, ";");
 		} else {
 			reply = new CString(this.instance, "true");
 		}
@@ -574,27 +574,30 @@ export class Prolog {
 
 		if (!cont)
 			return WASM_HOST_CALL_OK;
+		
 		return WASM_HOST_CALL_YIELD;
 	}
 
-	_host_resume(subquery: Ptr<subquery_t>, replyptrptr: Ptr<Ptr<char_t>>, replysizeptr: Ptr<size_t>) {
+	_host_resume(subquery: Ptr<subquery_t>, replyptrptr: Ptr<Ptr<char_t>>, replysizeptr: Ptr<size_t>): HostCallReply {
 		const task = this.yielding[subquery];
 		if (!task) {
 			return WASM_HOST_CALL_ERROR;
 		}
-		if (!task.done) {
-			throw new Error("trealla: async task didn't complete: " + task);
-		}
-		delete this.yielding[subquery];
+		// console.log("get thunk:", task, subquery);
+
+		if (task.done)
+			delete this.yielding[subquery];
+
 		let result;
 		try {
 			const x = task.value;
-			if (!x)
+			if (!x) {
+				result = "fail"
+			} else if (x === true) {
 				result = "true";
-			else if (typeof x === "boolean")
-				result = x ? "true" : "false";
-			else
+			} else {
 				result = toProlog(x);
+			}
 		} catch(error) {
 			console.error(error);
 			result = throwTerm(system_error("js_exception", `${error}`, piTerm("host_rpc", 2))).toProlog();
@@ -603,7 +606,12 @@ export class Prolog {
 		writeUint32(this.instance, replysizeptr, reply.size-1);
 		writeUint32(this.instance, replyptrptr, reply.ptr);
 
-		// TODO: return _CHOICE
+		if (!task.done)
+			return WASM_HOST_CALL_CHOICE;
+
+		if (result === "fail")
+			return WASM_HOST_CALL_FAIL;
+
 		return WASM_HOST_CALL_OK;
 	}
 }
@@ -613,6 +621,11 @@ const WASM_HOST_CALL_ERROR	= 0;
 const WASM_HOST_CALL_OK		= 1;
 const WASM_HOST_CALL_YIELD	= 2;
 const WASM_HOST_CALL_CHOICE	= 3;
+const WASM_HOST_CALL_FAIL	= 4;
+
+type HostCallReply = typeof WASM_HOST_CALL_ERROR | typeof WASM_HOST_CALL_OK |
+	typeof WASM_HOST_CALL_YIELD | typeof WASM_HOST_CALL_CHOICE | typeof WASM_HOST_CALL_FAIL;
+
 
 function newWASI(library?: string, env?: Record<string, string>, quiet?: boolean) {
 	const args = ["tpl", "--ns", "-g", "use_module(user), halt"];

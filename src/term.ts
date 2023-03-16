@@ -1,10 +1,12 @@
 import { JSONEncodingOptions } from "./prolog";
 
-export type Term = Atom | Compound | Variable | List | string | number | BigInt;
-
+export type Term = Atom | Compound<Functor, Args> | Variable | List | string | number | BigInt;
 export type List = Term[];
+export type Functor = string;
 
-export type Goal = Atom | Compound
+export type Args = [Term, ...Term[]];
+export type Goal = Atom | Compound<Functor, Args>;
+export type PredicateIndicator = Compound<"/", [Atom, number]>;
 
 /** Prolog atom term. */
 export class Atom {
@@ -33,17 +35,17 @@ export function Atomic(functor: string, args: Term[]) {
 }
 
 /** Prolog compound term. */
-export class Compound {
-	functor: string;
-	args: [Term, ...Term[]];
-	constructor(functor: string, args: [Term, ...Term[]]) {
+export class Compound<Functor extends string, Arguments extends Args> {
+	functor: Functor;
+	args: Arguments;
+	constructor(functor: Functor, args: Arguments) {
 		this.functor = functor;
 		this.args = args;
 		if (typeof args?.length === "undefined")
 			throw new Error("bad compound, not a list: " + functor);
 	}
 	get pi() { return `${this.functor}/${this.args.length}` }
-	get piTerm() { return new Compound("/", [this.functor, this.args.length]) }
+	get piTerm() { return new Compound("/", [new Atom(this.functor), this.args.length]) }
 	toProlog() {
 		if (this.args.length === 0)
 			return escapeAtom(this.functor);
@@ -57,19 +59,19 @@ export class Compound {
 }
 
 
-export function isAtom(x: Term, name?: string): x is Atom {
+export function isAtom(x: unknown, name?: string): x is Atom {
 	return x instanceof Atom &&
 		(typeof name == "undefined" || x.functor == name) &&
 		(!x.args?.length);
 }
 
-export function isCompound(x: Term, name?: string, arity?: number): x is Compound {
+export function isCompound<F extends string>(x: unknown, name?: F, arity?: number): x is Compound<F, Args> {
 	return x instanceof Compound &&
 		(typeof name == "undefined" || x.functor == name) &&
 		(typeof arity == "undefined" || x.args.length == arity);
 }
 
-export function isList(x: Term): x is List {
+export function isList(x: unknown): x is List {
 	return Array.isArray(x);
 }
 
@@ -77,8 +79,26 @@ export function isNumber(x: Term): x is number {
 	return typeof x === "number";
 }
 
+export function isString(x: Term): x is string {
+	return typeof x === "string";
+}
+
 export function isCallable(term: Term): term is Goal {
 	return isAtom(term) || isCompound(term);
+}
+
+export function isVariable(term: unknown): term is Variable {
+	return term instanceof Variable;
+}
+
+export function isTerm(term: unknown): term is Term {
+	switch (typeof term) {
+	case "number":
+	case "bigint":
+	case "string":
+		return true;
+	}
+	return isAtom(term) || isCompound(term) || isList(term) || isVariable(term);
 }
 
 /** Prolog variable term. */
@@ -122,7 +142,7 @@ function validVar(name: unknown) {
 	return false;
 }
 
-export function piTerm(name: string, arity: number): Compound {
+export function piTerm(name: string, arity: number) {
 	return new Compound("/", [new Atom(name), arity]);
 }
 
@@ -150,6 +170,9 @@ export function toProlog(obj: unknown): string {
 	
 	if ("toProlog" in obj && typeof obj.toProlog === "function")
 		return obj.toProlog(); 
+
+	if (obj instanceof Uint8Array)
+		return escapeString(new TextDecoder().decode(obj));
 
 	if (Array.isArray(obj))
 		return `[${obj.map(toProlog).join(",")}]`;
@@ -228,7 +251,7 @@ export function reviver(opts: JSONEncodingOptions = {}) {
 				}
 			}
 			// compounds
-			return new Compound(functor, (v as Compound).args);
+			return new Compound(functor, (v as Compound<Functor, Args>).args);
 		}
 		if (typeof v === "object" && ("var" in v) && typeof v.var === "string") {
 			return new Variable(v.var, (v as Variable).attr);
