@@ -1,11 +1,12 @@
-const path = require('path');
 const esbuild = require('esbuild');
+// @ts-ignore
 const plugin = require('node-stdlib-browser/helpers/esbuild/plugin');
+const { dtsPlugin } = require('esbuild-plugin-d.ts');
 const stdLibBrowser = require('node-stdlib-browser');
 
 (async () => {
 	await esbuild.build({
-		entryPoints: ['src/index.js'],
+		entryPoints: ['src/index.ts'],
 		bundle: true,
 		outfile: 'trealla.js',
 		format: 'esm',
@@ -18,6 +19,6 @@ const stdLibBrowser = require('node-stdlib-browser');
 		define: {
 			Buffer: 'Buffer'
 		},
-		plugins: [plugin(stdLibBrowser)]
+		plugins: [plugin(stdLibBrowser), dtsPlugin()]
 	});
 })();

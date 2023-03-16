@@ -1,6 +1,6 @@
 # trealla-js
 
-Javascript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla) via [wasmer-js](https://github.com/wasmerio/wasmer-js).
+~~Javascript~~ TypeScript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla) via [wasmer-js](https://github.com/wasmerio/wasmer-js).
 
 Trealla is a quick and lean ISO Prolog interpreter.
 
