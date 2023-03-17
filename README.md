@@ -168,9 +168,9 @@ Hopefully this should be transparent to the user.
 
 Function signature of eval:
 ```typescript
-function eval(pl: Prolog, pl: Ptr<subquery_t>, goal: Goal, trealla: {...LIBRARY_BINDINGS}) {
+function eval(pl: Prolog, subq: Ptr<subquery_t>, goal: Goal, trealla: {...LIBRARY_BINDINGS}) {
   /* your code here */
-  return someTerm;
+  // return someTerm;
 }
 ```
 
