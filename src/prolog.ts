@@ -216,7 +216,7 @@ export class Prolog {
 	 *  Call the `return()` method of the generator to kill it early if manually iterating with `next()`.
 	 *  Runtimes that support finalizers will make a best effort attempt to kill live but garbage-collected queries.
 	 **/
-	async* query(goal: string, options: QueryOptions = {}) {
+	async* query(goal: string, options: QueryOptions = {}): AsyncGenerator<Answer> {
 		if (!this.instance) await this.init();
 		const {
 			bind,
@@ -383,12 +383,12 @@ export class Prolog {
 	}
 
 	/** Runs a query and returns a single solution, ignoring others. */
-	async queryOnce(goal: string, options?: QueryOptions) {
+	async queryOnce(goal: string, options?: QueryOptions): Promise<Answer> {
 		const q = this.query(goal, options);
 		try {
 			return (await q.next()).value;
 		} finally {
-			q.return();
+			q.return(undefined);
 		}
 	}
 
@@ -431,7 +431,7 @@ export class Prolog {
 		// Module:'$load_chars'(Code)
 		const goal = new Compound(":", [new Atom(module), new Compound("$load_chars", [code])]);
 		const reply = await this.queryOnce(goal.toProlog());
-		if (reply.result !== "success") {
+		if (reply.status !== "success") {
 			throw new Error("trealla: consult text failed");
 		}
 		// console.log("loaded:", module, code);

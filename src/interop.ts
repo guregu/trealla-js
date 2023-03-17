@@ -1,7 +1,7 @@
 import { Compound, Atom, Variable, toProlog, fromJSON, piTerm, Goal, Term, Atomic,
 	isCompound, isList, isCallable, isNumber, isTerm, PredicateIndicator, Functor } from './term';
 import { Ptr } from './c';
-import { Ctrl, Prolog, subquery_t, Task, Tick } from './prolog';
+import { Answer, Ctrl, Prolog, subquery_t, Task, Tick } from './prolog';
 
 export type PredicateFunction<G extends Goal> =
 	(pl: Prolog, subq: Ptr<subquery_t>, goal: G, ctrl: Ctrl) =>
@@ -162,7 +162,7 @@ export const future_2 = new Predicate<Compound<"future", [Goal, PromiseTerm]>>(
 
 		const goalvar = new Variable("__GOAL");
 		const ask = new Compound(",", [new Compound("=", [goalvar, goal.args[0]]), goalvar]);
-		const task = pl.query(ask.toProlog());
+		const task = pl.query(ask.toProlog()) as AsyncGenerator<Answer & {goal: Goal}>;
 		const id = pl.addTask(task);
 		const promise = new Compound("$promise", [id, goal.args[0]]);
 		return new Compound(goal.functor, [goal.args[0], promise]);
@@ -217,7 +217,7 @@ export const await_any_3 = new Predicate<Compound<"await_any", [PromiseTerm[], V
 			if (!isCompound(token, "$promise")) {
 				return {
 					result: {
-						result: "error",
+						status: "error",
 						error: type_error("promise", token, goal.pi)
 					}
 				};
@@ -226,7 +226,7 @@ export const await_any_3 = new Predicate<Compound<"await_any", [PromiseTerm[], V
 			if (!isNumber(id)) {
 				return {
 					result: {
-						result: "error",
+						status: "error",
 						error: type_error("integer", id, goal.pi)
 					}
 				};

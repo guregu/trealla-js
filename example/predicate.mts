@@ -27,9 +27,9 @@ for await (const x of pl.query(`betwixt(1,5,N).`, {format: "json"})) {
 }
 
 /*
-{ result: 'success', answer: { N: 1 } }
-{ result: 'success', answer: { N: 2 } }
-{ result: 'success', answer: { N: 3 } }
-{ result: 'success', answer: { N: 4 } }
-{ result: 'success', answer: { N: 5 } }
+{ status: 'success', answer: { N: 1 } }
+{ status: 'success', answer: { N: 2 } }
+{ status: 'success', answer: { N: 3 } }
+{ status: 'success', answer: { N: 4 } }
+{ status: 'success', answer: { N: 5 } }
 */

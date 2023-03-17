@@ -33,7 +33,7 @@ await pl.consult("greeting");
 
 // assert some dynamic facts
 console.log(await pl.queryOnce("assertz(lang(prolog)), greeting:assertz(hello('Welt'))."));
-// { result: 'success', answer: {}, output: '' } // as in the regular toplevel's "true."
+// { status: 'success', answer: {}, output: '' } // as in the regular toplevel's "true."
 
 // run a query on the file we loaded and facts we asserted
 await dumpQuery(
@@ -41,17 +41,17 @@ await dumpQuery(
 
 /*
 {
-  result: 'success',
+  status: 'success',
   answer: { Planet: 'world', Lang: 'prolog' },
   output: 'hello world from prolog!\n'
 }
 {
-  result: 'success',
+  status: 'success',
   answer: { Planet: '世界', Lang: 'prolog' },
   output: 'hello 世界 from prolog!\n'
 }
 {
-  result: 'success',
+  status: 'success',
   answer: { Planet: 'Welt', Lang: 'prolog' },
   output: 'hello Welt from prolog!\n'
 }
@@ -60,7 +60,7 @@ await dumpQuery(
 await dumpQuery(pl.query("use_module(library(test)), library(Status)."));
 
 /*
-{ result: 'success', answer: { Status: 'ok' }, output: '' }
+{ status: 'success', answer: { Status: 'ok' }, output: '' }
 */
 
 // testing the optional "program" parameter which is consulted before the query is run
@@ -71,7 +71,7 @@ await dumpQuery(pl.query("🤠 howdy.", {
 }));
 
 /*
-{ result: 'success', answer: {}, output: 'yee haw howdy\n' }
+{ status: 'success', answer: {}, output: 'yee haw howdy\n' }
 */
 
 // multiple async queries:
