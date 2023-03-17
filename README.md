@@ -111,7 +111,7 @@ The return value of all predicates is a "continuation" that is either:
 - Boolean `false` to fail unconditionally
 
 Throwing a Prolog term will cause `throw/1` to be called by the guest.
-Throwing a non-Term will become `throw(error(system_error(js_exception("details...")), foo/N))`.
+Throwing a non-Term will become `throw(error(system_error(js_exception, "details..."), foo/N))`.
 
 ```typescript
 // Example of between/3 implemented in JS
