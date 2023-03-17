@@ -3,7 +3,7 @@ import { init as initWasmer, WASI } from '@wasmer/wasi';
 import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, WASI as CanonicalInstance, ABI, int_t, char_t, bool_t, size_t } from './c';
 import { FORMATS, Toplevel } from './toplevel';
-import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term } from './term';
+import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term, isTerm, Args } from './term';
 import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, Continuation } from './interop';
 // @ts-ignore
 import tpl_wasm from '../libtpl.wasm';
@@ -163,7 +163,7 @@ export class Prolog {
 	scratch = 0;
 	finalizers;
 	yielding: Record<Ptr<subquery_t>, Thunk> = {};		// *subq → maybe promise
-	procs: Record<string, Predicate<any>> = {}; // pi → predicate
+	procs: Record<string, Predicate<any>> = {};			// pi → predicate
 	tasks = new Map<number, Task>();		            // id → task
 	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 		    // *subq → ctrl
 	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();   // **subq → ctrl
@@ -443,7 +443,7 @@ export class Prolog {
 		if (!(pred instanceof Predicate))
 			throw new Error("trealla: predicate is not type Predicate");
 
-		this.procs[pred.pi] = pred;
+		this.procs[pred.pi.toString()] = pred;
 		const shim = pred.shim();
 		await this.consultTextInto(shim, module);
 	}
@@ -451,7 +451,7 @@ export class Prolog {
 	async registerPredicates(predicates: (Predicate<Goal>)[], module = "user") {
 		let shim = "";
 		for (const pred of predicates) {
-			this.procs[pred.pi] = pred;
+			this.procs[pred.pi.toString()] = pred;
 			shim += pred.shim(); + " ";
 		}
 		await this.consultTextInto(shim, module);
@@ -534,25 +534,30 @@ export class Prolog {
 		const raw = readString(this.instance, ptr, msgsize);
 		const goal = fromJSON(raw) as Goal;
 		const ctrl = this.ctrl(subquery);
-		let result;
-		let cont: AsyncGenerator<Goal | boolean, Continuation<Goal>, void> | undefined;
+		let result = "fail";
+		let cont: AsyncGenerator<Continuation<Goal>, Continuation<Goal>, void> | undefined;
 		try {
-			const pred = this.procs[goal.pi];
+			const pred = this.procs[goal.pi.toProlog()];
 			if (!pred) {
-				result = sys_missing_n(this, subquery, goal);
+				sys_missing_n(this, subquery, goal); // throws
 			} else if (!pred.async) {
 				const value = pred.proc(this, subquery, goal, ctrl);
 				if (value instanceof Promise) {
-					cont = async function* () { return await value; }() as typeof cont;
+					cont = async function* () { return await value; }();
+					result = "true";
 				} else {
-					result = value;
+					if (isTerm(value))
+						result = toProlog(value);
+					else
+						result = value;
 				}
 			} else {
 				cont = pred.eval(this, subquery, goal, ctrl);
+				result = "true";
 			}
 		} catch(error) {
 			console.error(error);
-			result = throwTerm(system_error("js_exception", `${error}`, goal.piTerm)).toProlog();
+			result = throwTerm(system_error("js_exception", `${error}`, goal.pi)).toProlog();
 		}
 
 		if (cont) {
@@ -564,9 +569,10 @@ export class Prolog {
 
 		let reply: CString;
 		if (typeof result === "string") {
-			reply = new CString(this.instance, ";");
+			reply = new CString(this.instance, result);
 		} else {
-			reply = new CString(this.instance, "true");
+			console.warn("invalid return value from native predicate: " + goal.pi + " value: " + result)
+			return WASM_HOST_CALL_ERROR;
 		}
 
 		writeUint32(this.instance, replysizeptr, reply.size-1);

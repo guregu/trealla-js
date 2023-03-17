@@ -8,9 +8,9 @@ export const betwixt_3 = new Predicate<Compound<"betwixt", [number, number, numb
     async function*(_pl, _subquery, goal) {
         const [min, max, n] = goal.args;
         if (!isNumber(min))
-            throw type_error("number", min, goal.piTerm);
+            throw type_error("number", min, goal.pi);
         if (!isNumber(max))
-            throw type_error("number", max, goal.piTerm);
+            throw type_error("number", max, goal.pi);
 
         for (let i = isNumber(n) ? n : min; i <= max; i++) {
             goal.args[2] = i;

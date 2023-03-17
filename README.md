@@ -77,7 +77,7 @@ console.log(greeting.answer.X); // Atom { functor: "world" }
 
 ```javascript
 {
-  "result": "success",
+  "status": "success",
   "answer": {"X": 2, "Y": 4},
   "stdout": "(2,4)\n"
 }
@@ -88,35 +88,93 @@ console.log(greeting.answer.X); // Atom { functor: "world" }
 
 Experimental. With great power comes great responsibility 🤠
 
-The JS host will evaluate the expression you give it and marshal it to JSON.
-You can use `js_eval_json/2` to grab the result.
-Note that JSON does not handle all types such as `undefined`.
+#### Writing a Prolog predicate in Javascript 🆕
+
+You can implement Prolog predicates using Javascript.
+
+This is useful for taking advantage of browser functionality, or utilizing JS's async runtime.
+
+```typescript
+// Native predicates are fully type-safe :-)
+export type PredicateFunction<G extends Goal> =
+	(pl: Prolog, subq: Ptr<subquery_t>, goal: G, ctrl: Ctrl) =>
+		Continuation<G> | Promise<Continuation<G>> | AsyncIterable<Continuation<G>>;
+export type Continuation<G extends Goal> = G | boolean;
+export type Goal = Atom | Compound<string, [Term, ...Term[]]>;
+```
+
+Create a new Predicate with `new Predicate(...)` and register it with `pl.register(...)`.
+
+The return value of all predicates is a "continuation" that is either:
+- A goal that will be unified with the call
+- Boolean `true` to succeed unconditionally
+- Boolean `false` to fail unconditionally
+
+Throwing a Prolog term will cause `throw/1` to be called by the guest.
+Throwing a non-Term will become `throw(error(system_error(js_exception("details...")), foo/N))`.
+
+```typescript
+// Example of between/3 implemented in JS
+export const betwixt_3 = new Predicate<Compound<"betwixt", [number, number, number | Variable]>>(
+    "betwixt", 3,
+    async function*(_pl, _subquery, goal) {
+        const [min, max, n] = goal.args;
+        if (!isNumber(min))
+            throw type_error("number", min, goal.pi);
+        if (!isNumber(max))
+            throw type_error("number", max, goal.pi);
+
+        for (let i = isNumber(n) ? n : min; i <= max; i++) {
+            goal.args[2] = i;
+            if (i == max)
+                return goal;
+            yield goal;
+        }
+    });
+
+await pl.register(betwixt_3, /* optional module name */);
+```
+
+The fanciest predicate function is an async generator, in which you can use `yield` to create choice points, and `return` as a kind of internal cut.
+
+You can also use regular async functions (i.e. functions that return a `Promise`) or plain functions.
+
+The Prolog interpreter will automatically yield to the host when calling a native predicate backed by an async function or generator.
+
+#### Evaluating JS code from Prolog
+
+**NOTE**: work in progress, see `examples/{hostcall,yield}.mjs`
+
+The JS host will evaluate the expression you give it ~~and marshal it to JSON~~.
+You can use `js_eval/2` to grab the result.
 
 ```prolog
 greet :-
-  js_eval_json("return prompt('Name?');", Name),
+  js_eval("return prompt('Name?');", Name),
   format("Greetings, ~s.", [Name]).
 
 here(URL) :-
-  js_eval_json("return location.href;", URL).
-% URL = "https://php.energy/trealla.html"
+  js_eval("return new trealla.Atom(location.href);", URL).
+% URL = 'https://php.energy/trealla.html'
 ```
 
 If your evaluated code returns a promise, Prolog will yield to the host to evaluate the promise.
 Hopefully this should be transparent to the user.
 
 ```prolog
-?- js_eval_json("return fetch('http://example.com').then(x => x.text());", Src).
+?- js_eval("return fetch('http://example.com').then(x => x.text());", Src).
    Src = "<html><head><title>Example page..."
 ```
 
-`js_eval/2` works the same but does not attempt to parse the JSON.
-If your JS expression returns a Uint8Array, it will be returned as-is instead of JSON-encoded.
-
-```prolog
-?- js_eval("return new TextEncoder().encode('arbitrary text');", Result)
-   Result = "arbitrary text".
+Function signature of eval:
+```typescript
+function eval(pl: Prolog, pl: Ptr<subquery_t>, goal: Goal, trealla: {...LIBRARY_BINDINGS}) {
+  /* your code here */
+  return someTerm;
+}
 ```
+
+The `trealla` argument provides bindings to the library's constructors for terms.
 
 ### Caveats
 
@@ -263,7 +321,7 @@ declare module 'trealla' {
 
   /** Answer for the "json" format. */
   interface Answer {
-    result: "success" | "failure" | "error";
+    status: "success" | "failure" | "error";
     answer?: Substitution;
     error?: Term;
     /** Standard output text (`user_output` stream in Prolog) */

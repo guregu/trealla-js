@@ -35,8 +35,4 @@ for await (const x of pl.query(`between(1,3,N), once(phrase(format_("return new 
 	console.log(x);
 }
 
-for await (const x of pl.query(`betwixt(1,3,N).`, {format: "json"})) {
-	console.log(x);
-}
-
 console.log(await pl.queryOnce(`crypto_data_hash("foo", Hash, [algorithm(Algo)]).`, {format: "prolog"}));

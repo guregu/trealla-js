@@ -40,7 +40,7 @@ export class Predicate<G extends Goal> {
 		} catch (error) {
 			if (isTerm(error))
 				return new Compound("throw", [error]);
-			return system_error("js_exception", `${error}`, goal.piTerm)
+			return system_error("js_exception", `${error}`, goal.pi)
 		}
 		return false;
 	}
@@ -55,9 +55,6 @@ export class Predicate<G extends Goal> {
 	}
 
 	get pi() {
-		return `${this.name}/${this.arity}`;
-	}
-	get piTerm() {
 		return piTerm(this.name, this.arity);
 	}
 }
@@ -68,9 +65,9 @@ export const sleep_1 = new Predicate<Compound<"sleep", [number]>>(
 	async function(_pl, _subquery, goal) {
 		const time = goal.args[0];
 		if (typeof time !== "number")
-			throw type_error("number", time, goal.piTerm);
+			throw type_error("number", time, goal.pi);
 		if (time < 0)
-			throw domain_error("not_less_than_zero", time, goal.piTerm);
+			throw domain_error("not_less_than_zero", time, goal.pi);
 
 		await new Promise(resolve => setTimeout(resolve, time * 1000));
 		return true;
@@ -81,9 +78,9 @@ export const delay_1 = new Predicate<Compound<"delay", [number]>>(
 	async function(_pl, _subquery, goal) {
 		const time = goal.args[0];
 		if (typeof time !== "number")
-			throw type_error("number", time, goal.piTerm);
+			throw type_error("number", time, goal.pi);
 		if (time < 0)
-			throw domain_error("not_less_than_zero", time, goal.piTerm);
+			throw domain_error("not_less_than_zero", time, goal.pi);
 	
 		await new Promise(resolve => setTimeout(resolve, time));
 		return true;
@@ -104,14 +101,14 @@ export const js_eval_2 = new Predicate<Compound<"js_eval", [string, Term]>>(
 	async function(pl, subquery, goal) {
 		const expr = goal.args[0];
 		if (typeof expr !== "string")
-			throw type_error("chars", expr, goal.piTerm);
+			throw type_error("chars", expr, goal.pi);
 
 		let value;
 		try {
 			value = await js_eval(pl, subquery, goal, expr);
 		} catch (error) {
 			console.error(error);
-			throw system_error("js_exception", `${error}`, goal.piTerm);
+			throw system_error("js_exception", `${error}`, goal.pi);
 		}
 
 		if (!value)
@@ -126,14 +123,14 @@ export const js_eval_json_2 = new Predicate<Compound<"js_eval_json", [string, Te
 	async function(pl, subquery, goal) {
 		const expr = goal.args[0];
 		if (typeof expr !== "string")
-			throw type_error("chars", expr, goal.piTerm);
+			throw type_error("chars", expr, goal.pi);
 
 		let value;
 		try {
 			value = await js_eval(pl, subquery, goal, expr);
 		} catch (error) {
 			console.error(error);
-			throw system_error("js_exception", `${error}`, goal.piTerm);
+			throw system_error("js_exception", `${error}`, goal.pi);
 		}
 
 		if (!value)
@@ -146,7 +143,7 @@ export const js_eval_json_2 = new Predicate<Compound<"js_eval_json", [string, Te
 
 async function js_eval(pl: Prolog, subquery: Ptr<subquery_t>, goal: Goal, expr: Term) {
 	if (typeof expr !== "string")
-		throw type_error("chars", expr, goal.piTerm);
+		throw type_error("chars", expr, goal.pi);
 
 	let value = new Function('pl', 'subquery', 'goal', 'trealla', expr)(pl, subquery, goal, EVAL_BINDINGS);
 
@@ -161,7 +158,7 @@ export const future_2 = new Predicate<Compound<"future", [Goal, PromiseTerm]>>(
 	function(pl, _subq, goal) {
 		const call = goal.args[0];
 		if (!isCallable(call))
-			throw type_error("callable", call, goal.piTerm);
+			throw type_error("callable", call, goal.pi);
 
 		const goalvar = new Variable("__GOAL");
 		const ask = new Compound(",", [new Compound("=", [goalvar, goal.args[0]]), goalvar]);
@@ -177,11 +174,11 @@ export const sys_await_1 = new Predicate<Compound<"$await", [PromiseTerm]>>(
 	async function(pl, _subq, goal, ctrl) {
 		const token: Term = goal.args[0];
 		if (!isCompound(token, "$promise", 2)) {
-			throw type_error("promise", token, goal.piTerm);
+			throw type_error("promise", token, goal.pi);
 		}
 		const id = token.args[0];
 		if (!isNumber(id)) {
-			throw type_error("integer", token, goal.piTerm);
+			throw type_error("integer", token, goal.pi);
 		}
 		const task: Task | undefined = pl.tasks.get(id);
 		if (!task) {
@@ -214,14 +211,14 @@ export const await_any_3 = new Predicate<Compound<"await_any", [PromiseTerm[], V
 	async function(pl, _subq, goal, ctrl) {
 		const tokens = goal.args[0];
 		if (!isList(tokens)) {
-			throw type_error("list", tokens, goal.piTerm);
+			throw type_error("list", tokens, goal.pi);
 		}
 		const ticks = tokens.map(token => {
 			if (!isCompound(token, "$promise")) {
 				return {
 					result: {
 						result: "error",
-						error: type_error("promise", token, goal.piTerm)
+						error: type_error("promise", token, goal.pi)
 					}
 				};
 			}
@@ -230,7 +227,7 @@ export const await_any_3 = new Predicate<Compound<"await_any", [PromiseTerm[], V
 				return {
 					result: {
 						result: "error",
-						error: type_error("integer", id, goal.piTerm)
+						error: type_error("integer", id, goal.pi)
 					}
 				};
 			}
@@ -276,11 +273,11 @@ export const future_cancel_1 = new Predicate<Compound<Functor, [PromiseTerm]>>(
 	function(pl, _subq, goal, _ctrl) {
 		const token = goal.args[0];
 		if (!isCompound(token, "$promise")) {
-			throw type_error("promise", token, goal.piTerm);
+			throw type_error("promise", token, goal.pi);
 		}
 		const id = token.args[0];
 		if (!isNumber(id)) {
-			throw type_error("integer", token, goal.piTerm);
+			throw type_error("integer", token, goal.pi);
 		}
 		const task = pl.tasks.get(id);
 		if (!task) {
@@ -304,14 +301,14 @@ export const sys_await_all_1 = new Predicate<Compound<Functor, [PromiseTerm[]]>>
 	async function(pl, _subq, goal, ctrl) {
 		const tokens = goal.args[0];
 		if (!isList(tokens)) {
-			throw type_error("list", tokens, goal.piTerm);
+			throw type_error("list", tokens, goal.pi);
 		}
 		for (const token of tokens) {
 			if (!isCompound(token, "$promise")) {
-				throw type_error("promise", token, goal.piTerm);
+				throw type_error("promise", token, goal.pi);
 			}
 			if (!isNumber(token.args[0])) {
-				throw type_error("integer", token.args[0], goal.piTerm);
+				throw type_error("integer", token.args[0], goal.pi);
 			}
 		}
 		const ps = tokens.map(token => {
@@ -350,14 +347,14 @@ export const sys_await_some_3 = new Predicate<Compound<Functor, [PromiseTerm[], 
 	async function(pl, _subq, goal, ctrl) {
 		const tokens = goal.args[0];
 		if (!isList(tokens)) {
-			throw type_error("list", tokens, goal.piTerm);
+			throw type_error("list", tokens, goal.pi);
 		}
 		for (const token of tokens) {
 			if (!isCompound(token, "$promise")) {
-				throw type_error("promise", token, goal.piTerm);
+				throw type_error("promise", token, goal.pi);
 			}
 			if (!isNumber(token.args[0])) {
-				throw type_error("integer", token.args[0], goal.piTerm);
+				throw type_error("integer", token.args[0], goal.pi);
 			}
 		}
 		const ps = (tokens as PromiseTerm[]).map(token => {
@@ -405,7 +402,7 @@ export const sys_await_some_3 = new Predicate<Compound<Functor, [PromiseTerm[], 
 	});
 
 export function sys_missing_n(_pl: Prolog, _subq: Ptr<subquery_t>, goal: Goal) {
-	throw existence_error("procedure", goal.piTerm, piTerm("host_rpc", 1));
+	throw existence_error("procedure", goal.pi, piTerm("host_rpc", 1));
 }
 
 export function throwTerm(ball: Term) {

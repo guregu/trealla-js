@@ -15,8 +15,7 @@ export class Atom {
 	constructor(functor: string) {
 		this.functor = functor;
 	}
-	get pi() { return `${this.functor}/0` }
-	get piTerm() { return piTerm(this.functor, 0) }
+	get pi() { return piTerm(this.functor, 0) }
 	toProlog() {
 		return escapeAtom(this.functor);
 	}
@@ -44,8 +43,7 @@ export class Compound<Functor extends string, Arguments extends Args> {
 		if (typeof args?.length === "undefined")
 			throw new Error("bad compound, not a list: " + functor);
 	}
-	get pi() { return `${this.functor}/${this.args.length}` }
-	get piTerm() { return new Compound("/", [new Atom(this.functor), this.args.length]) }
+	get pi() { return new Compound("/", [new Atom(this.functor), this.args.length]) }
 	toProlog() {
 		if (this.args.length === 0)
 			return escapeAtom(this.functor);
