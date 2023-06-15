@@ -21,10 +21,6 @@ export class Predicate<G extends Goal> {
 		this.async = async;
 	}
 
-	// call(pl: Prolog, subquery: number, goal: G, ctrl: any) {
-	// 	return this.fn(pl, subquery, goal, ctrl);
-	// }
-
 	async* eval(pl: Prolog, subquery: number, goal: G, ctrl: Ctrl) {
 		const x = this.proc(pl, subquery, goal, ctrl);
 		try {
@@ -59,7 +55,8 @@ export class Predicate<G extends Goal> {
 	}
 }
 
-type PromiseTerm = Compound<"$promise", [number, Goal]> /* & {functor: "$promise"} */;
+type PromiseTerm = Compound<"$promise", [number, Goal]>;
+
 export const sleep_1 = new Predicate<Compound<"sleep", [number]>>(
 	"sleep", 1,
 	async function(_pl, _subquery, goal) {

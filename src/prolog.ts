@@ -108,8 +108,8 @@ export interface ErrorReply {
 /** Mapping of variable name → Term substitutions. */
 export type Substitution = Record<string, Term>;
 
-export type prolog_t = never;
-export type subquery_t = never;
+export type prolog_t = void;
+export type subquery_t = void;
 
 export type Ctrl = {
 	subq: Ptr<subquery_t>,
@@ -261,7 +261,7 @@ export class Prolog {
 
 		let subqptr: Ptr<Ptr<subquery_t>> = realloc(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
 		let readSubqPtr = () => {
-			const subq = subqptr ? indirect<Ptr<subquery_t>>(this.instance, subqptr) : NULL;
+			const subq = subqptr ? indirect(this.instance, subqptr) : NULL;
 			if (subq !== NULL) {
 				this.subqs.set(subq, ctrl);
 				this.spawning.delete(subqptr);
@@ -452,7 +452,7 @@ export class Prolog {
 		let shim = "";
 		for (const pred of predicates) {
 			this.procs[pred.pi.toString()] = pred;
-			shim += pred.shim(); + " ";
+			shim += pred.shim() + " ";
 		}
 		await this.consultTextInto(shim, module);
 	}

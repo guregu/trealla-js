@@ -4,7 +4,7 @@ export const NULL: Ptr<any> = 0;
 export const FALSE: bool_t = 0;
 export const TRUE: bool_t = 1;
 
-export type Ptr<_> = number;
+export type Ptr<T> = number & {_tag?: T};
 export type char_t = void;
 export type void_t = void;
 export type size_t = number;
@@ -17,7 +17,7 @@ export interface WASI extends WebAssembly.Instance {
 
 export interface ABI extends WebAssembly.Exports {
 	memory: WebAssembly.Memory;
-	canonical_abi_realloc<T>(ptr: Ptr<T>, old_size: size_t, align: int_t, size: size_t): Ptr<T>;
+	canonical_abi_realloc<T>(ptr: Ptr<T> | typeof NULL, old_size: size_t, align: int_t, size: size_t): Ptr<T>;
 	canonical_abi_free<T>(ptr: Ptr<T>, size: size_t, align: int_t): void;
 }
 
@@ -68,10 +68,12 @@ export function readString(instance: WASI, ptr: Ptr<char_t>, size?: number) {
 	return new TextDecoder().decode(mem.subarray(ptr, idx));
 }
 
-export function indirect<T extends number>(instance: WASI, addr: Ptr<T>): T | typeof NULL {
-	if (addr === NULL) return NULL;
-	return (new Uint32Array(instance.exports.memory.buffer))[addr / 4];
+export function indirect<T extends Ptr<U>, U extends number>(instance: WASI, addr: T): Deref<T> {
+	// if (addr === NULL) return NULL;
+	return (new Uint32Array(instance.exports.memory.buffer))[addr / 4] as Deref<T>;
 }
+
+export type Deref<T> = T extends Ptr<infer U> ? U extends number ? U : never : never;
 
 export function writeUint32<T>(instance: WASI, addr: Ptr<T>, int: number) {
 	new Uint32Array(instance.exports.memory.buffer)[addr / 4] = int;
