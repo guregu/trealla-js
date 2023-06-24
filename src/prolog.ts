@@ -298,11 +298,11 @@ export class Prolog {
 		try {
 			const ok = pl_query(this.ptr, goalstr.ptr, subqptr, autoyield);
 			goalstr.free();
-			
+
 			const subq = readSubqPtr(); // pl_sub_query*
 			ctrl.subq = subq;
 			readSubqPtr = function() { return subq };
-			free(subqptr, PTRSIZE, 1);
+			free(subqptr, PTRSIZE, ALIGN);
 			subqptr = NULL;
 
 			do {
@@ -310,7 +310,7 @@ export class Prolog {
 					this.finalizers.register(token, ctrl);
 					finalizing = true;
 				}
-				
+
 				// need to eagerly read buffers in case we await or come from a yield
 				readOutput();
 
