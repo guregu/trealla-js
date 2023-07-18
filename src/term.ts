@@ -23,7 +23,14 @@ export class Atom {
 }
 
 /** Template string tag for making atoms. */
-export function atom([functor]:[string]) {
+export function atom(text: TemplateStringsArray, ...values: any[]) {
+	let functor = "";
+	for (let i = 0; i < text.length; i++){
+		functor += text[i];
+		if (i < values.length){
+			functor += values[i];
+		}
+	}
 	return new Atom(functor);
 }
 
