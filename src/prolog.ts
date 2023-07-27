@@ -555,7 +555,7 @@ export class Prolog {
 				cont = pred.eval(this, subquery, goal, ctrl);
 				result = "true";
 			}
-		} catch(error) {
+		} catch (error) {
 			console.error(error);
 			result = throwTerm(system_error("js_exception", `${error}`, goal.pi)).toProlog();
 		}
@@ -571,7 +571,7 @@ export class Prolog {
 		if (typeof result === "string") {
 			reply = new CString(this.instance, result);
 		} else {
-			console.warn("invalid return value from native predicate: " + goal.pi + " value: " + result)
+			console.warn("invalid return value from native predicate: " + goal.pi + " value: " + result);
 			return WASM_HOST_CALL_ERROR;
 		}
 
@@ -598,13 +598,13 @@ export class Prolog {
 		try {
 			const x = task.value;
 			if (!x) {
-				result = "fail"
+				result = "fail";
 			} else if (x === true) {
 				result = "true";
 			} else {
 				result = toProlog(x);
 			}
-		} catch(error) {
+		} catch (error) {
 			console.error(error);
 			result = throwTerm(system_error("js_exception", `${error}`, piTerm("host_rpc", 2))).toProlog();
 		}
