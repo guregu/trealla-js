@@ -434,7 +434,6 @@ export const LIBRARY: Predicate<any>[] = [
 	sys_await_all_1,
 	await_any_3,
 	future_cancel_1,
-	// betwixt_3,
 ];
 
 const EVAL_BINDINGS = {
