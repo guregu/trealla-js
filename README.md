@@ -554,8 +554,8 @@ npm install
 npm run compile
 # build js
 npm run build
-# "test"
-node examples/node.mjs
+# (build and) run tests
+npm run test
 ```
 
 ## See Also
