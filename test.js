@@ -145,6 +145,22 @@ test("bigint", async (t) => {
 	);
 });
 
+test("library(clpz)", async (t) => {
+	const pl = new Prolog();
+	// Unfortunately, we need to load clpz in a separate query first to import the operators
+	await pl.queryOnce("use_module(library(clpz)).");
+	const answer = await pl.queryOnce("X #> 1, X #< 3.");
+	assert.deepEqual(
+		answer,
+		{
+			status: "success",
+			answer: {
+				X: 2
+			}
+		}
+	);
+});
+
 test("atom template", async (t) => {
 	assert.deepEqual(
 		atom`hello`,
