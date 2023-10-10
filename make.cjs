@@ -11,7 +11,7 @@ const stdLibBrowser = require('node-stdlib-browser');
 		outfile: 'trealla.js',
 		format: 'esm',
 		loader: {'.wasm': 'binary'},
-		target: ['firefox78', 'safari15'],
+		target: ['es2021', 'safari15'],
 		minify: true,
 		keepNames: true,
 		sourcemap: true,

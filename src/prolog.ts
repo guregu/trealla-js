@@ -1,5 +1,4 @@
 import { init as initWasmer, WASI } from '@wasmer/wasi';
-
 import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, WASI as CanonicalInstance, ABI, int_t, char_t, bool_t, size_t } from './c';
 import { FORMATS, Toplevel } from './toplevel';
@@ -10,16 +9,15 @@ import tpl_wasm from '../libtpl.wasm';
 
 let tpl: WebAssembly.Module = undefined!; // default Trealla module
 
-let initRuntime = false;
-async function initInternal() {
+let initPromise = async function() {
 	await initWasmer();
 	tpl = await WebAssembly.compile(tpl_wasm as Uint8Array);
-	initRuntime = true;
-}
+}();
+// await initPromise;
 
 /** Load the Trealla and wasmer-js runtimes. */
-export async function load() {
-	if (!initRuntime) await initInternal();
+export function load() {
+	return initPromise;
 }
 
 export interface PrologOptions {
@@ -190,7 +188,7 @@ export class Prolog {
 
 	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
 	async init() {
-		if (!initRuntime) await initInternal();
+		if (!tpl) await initPromise;
 
 		const imports = this.wasi.getImports(tpl) as WebAssembly.Imports;
 		imports.trealla = {
@@ -386,7 +384,8 @@ export class Prolog {
 	async queryOnce(goal: string, options?: QueryOptions): Promise<Answer> {
 		const q = this.query(goal, options);
 		try {
-			return (await q.next()).value;
+			const answer = await q.next();
+			return answer.value;
 		} finally {
 			q.return(undefined);
 		}
