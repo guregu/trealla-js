@@ -1,17 +1,18 @@
 import { init as initWasmer, WASI } from '@wasmer/wasi';
+
 import { CString, indirect, readString, writeUint32,
-	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, WASI as CanonicalInstance, ABI, int_t, char_t, bool_t, size_t } from './c';
+	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, int_t, char_t, bool_t, size_t,
+	WASI as StandardInstance, ABI } from './c';
 import { FORMATS, Toplevel } from './toplevel';
 import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term, isTerm, Args } from './term';
 import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, Continuation } from './interop';
-// @ts-ignore
-import tpl_wasm from '../libtpl.wasm';
 
-let tpl: WebAssembly.Module = undefined!; // default Trealla module
+import tpl_wasm from '../libtpl.wasm';
+let tpl: WebAssembly.Module;
 
 let initPromise = async function() {
 	await initWasmer();
-	tpl = await WebAssembly.compile(tpl_wasm as Uint8Array);
+	tpl = await WebAssembly.compile(tpl_wasm);
 }();
 // await initPromise;
 
@@ -117,7 +118,7 @@ export type Ctrl = {
 	stderr: (str: string) => void,
 }
 
-interface Instance extends CanonicalInstance {
+interface Instance extends StandardInstance {
     exports: Trealla;
 }
 
