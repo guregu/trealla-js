@@ -173,6 +173,20 @@ test("atom template", async (t) => {
 	);
 });
 
+test("json bools/null", async (t) => {
+	const pl = new Prolog();
+	const answer = await pl.queryOnce(`json_chars({"a": true, "b": false, "c": null, "d": []}, Cs).`);
+	assert.deepEqual(
+		answer,
+		{
+			status: "success",
+			answer: {
+				Cs: `{"a":true,"b":false,"c":null,"d":[]}`
+			}
+		}
+	);
+});
+
 test("js_eval_json/2", async(t) => {
 	const pl = new Prolog();
 	await t.test("sync interop", async (t) => {
