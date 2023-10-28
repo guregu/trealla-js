@@ -38,11 +38,11 @@
   },
   "homepage": "https://github.com/guregu/trealla-js#readme",
   "dependencies": {
-    "@wasmer/wasi": "^1.2.0"
+    "@wasmer/wasi": "^1.2.2"
   },
   "devDependencies": {
-    "@types/node": "^18.15.3",
-    "esbuild": "^0.15.10",
+    "@types/node": "^18.18.7",
+    "esbuild": "^0.15.18",
     "esbuild-plugin-d.ts": "^1.1.0",
     "node-stdlib-browser": "^1.2.0",
     "typescript": "^4.9.5"
