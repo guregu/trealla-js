@@ -191,7 +191,7 @@ test("js_eval_json/2", async(t) => {
 	const pl = new Prolog();
 	await t.test("sync interop", async (t) => {
 		await expect(
-			pl.query(`use_module(library(format)), between(1,3,N), once(phrase(format_("return ~d;", [N]), JS)), js_eval_json(JS, Got)`, {format: "json"}),
+			pl.query(`use_module(library(dcgs)), use_module(library(format)), between(1,3,N), once(phrase(format_("return ~d;", [N]), JS)), js_eval_json(JS, Got)`, {format: "json"}),
 			[
 				{status: "success", answer: {N: 1, Got: "1", JS: "return 1;"}},
 				{status: "success", answer: {N: 2, Got: "2", JS: "return 2;"}},
@@ -203,7 +203,7 @@ test("js_eval_json/2", async(t) => {
 
 	await t.test("async interop", async (t) => {
 		await expect(
-			pl.query(`use_module(library(format)), between(1,3,N), once(phrase(format_("return new Promise((resolve) => resolve(~w))", [N]), JS)), js_eval_json(JS, Got)`, {format: "json"}),
+			pl.query(`use_module(library(dcgs)), use_module(library(format)), between(1,3,N), once(phrase(format_("return new Promise((resolve) => resolve(~w))", [N]), JS)), js_eval_json(JS, Got)`, {format: "json"}),
 			[
 				{status: "success", answer: {N: 1, Got: "1", JS: "return new Promise((resolve) => resolve(1))"}},
 				{status: "success", answer: {N: 2, Got: "2", JS: "return new Promise((resolve) => resolve(2))"}},

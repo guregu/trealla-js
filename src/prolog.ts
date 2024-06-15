@@ -206,7 +206,7 @@ export class Prolog {
 		const pl_global = this.instance.exports.pl_global as Function;
 		this.ptr = pl_global();
 
-		await this.registerPredicates(LIBRARY, "builtin");
+		await this.registerPredicates(LIBRARY, "user");
 	}
 
 	/** Run a query. This is an asynchronous generator function.
