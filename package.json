@@ -38,8 +38,7 @@
   },
   "homepage": "https://github.com/guregu/trealla-js#readme",
   "dependencies": {
-    "@bjorn3/browser_wasi_shim": "^0.3.0",
-    "@wasmer/wasi": "^1.2.2"
+    "@bjorn3/browser_wasi_shim": "^0.3.0"
   },
   "devDependencies": {
     "@types/node": "^18.18.7",
