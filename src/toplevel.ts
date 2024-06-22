@@ -31,7 +31,16 @@ export const FORMATS = {
 
 			const dec = new TextDecoder();
 			const json = dec.decode(stdout.slice(jsonStart, jsonEnd));
-			const msg = JSON.parse(json, reviver(opts));
+			let msg;
+			try {
+				msg = JSON.parse(json, reviver(opts));
+			} catch (ex) {
+				console.error("Bad stdout:\n" + json);
+				if (stderr?.length > 0) {
+					console.warn("stderr:\n" + new TextDecoder().decode(stderr));
+				}
+				throw ex;
+			}
 
 			if (start + 1 !== end) {
 				msg.stdout = dec.decode(stdout.slice(start + 1, end));

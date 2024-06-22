@@ -19,6 +19,7 @@ export interface ABI extends WebAssembly.Exports {
 	memory: WebAssembly.Memory;
 	canonical_abi_realloc<T>(ptr: Ptr<T> | typeof NULL, old_size: size_t, align: int_t, size: size_t): Ptr<T>;
 	canonical_abi_free<T>(ptr: Ptr<T>, size: size_t, align: int_t): void;
+	_start(): int_t;
 }
 
 export class CString {

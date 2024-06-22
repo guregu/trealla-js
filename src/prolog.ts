@@ -1,4 +1,4 @@
-import { init as initWasmer, WASI } from '@wasmer/wasi';
+import { ConsoleStdout, OpenFile, PreopenDirectory, File, WASI, OpenDirectory, Directory, Fd, strace } from '@bjorn3/browser_wasi_shim';
 
 import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, int_t, char_t, bool_t, size_t,
@@ -11,7 +11,7 @@ import tpl_wasm from '../libtpl.wasm';
 let tpl: WebAssembly.Module;
 
 let initPromise = async function() {
-	await initWasmer();
+	// await initWasmer();
 	tpl = await WebAssembly.compile(tpl_wasm);
 }();
 // await initPromise;
@@ -20,6 +20,11 @@ let initPromise = async function() {
 export function load() {
 	return initPromise;
 }
+
+// OpenDirectory.prototype.path_readlink = function(path_str: string): { ret: number; data: string | null } {
+// 	const ret = this.path_filestat_get(0, path_str);
+// 	ret.filestat.
+// }
 
 export interface PrologOptions {
     /** Library files path (default: "/library")
@@ -166,6 +171,7 @@ export class Prolog {
 	tasks = new Map<number, Task>();		            // id → task
 	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 		    // *subq → ctrl
 	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();   // **subq → ctrl
+	os = newOS();
 
 	/**	Create a new Prolog interpreter instance. */
 	constructor(options: Partial<PrologOptions> = {}) {
@@ -174,7 +180,7 @@ export class Prolog {
 			env,
 			quiet
 		} = options;
-		this.wasi = newWASI(library, env, quiet);
+		this.wasi = newWASI(this.os, library, env, quiet);
 		if ("FinalizationRegistry" in globalThis) {
 			this.finalizers = new FinalizationRegistry((task: Ctrl) => {
 				if (task.alive) {
@@ -191,11 +197,15 @@ export class Prolog {
 	async init() {
 		if (!tpl) await initPromise;
 
-		const imports = this.wasi.getImports(tpl) as WebAssembly.Imports;
-		imports.trealla = {
-			"host-call": this._host_call.bind(this),
-			"host-resume": this._host_resume.bind(this)
-		};
+		// const imports = this.wasi.getImports(tpl) as WebAssembly.Imports;
+		const imports = {
+			"wasi_snapshot_preview1": strace(this.wasi.wasiImport, ["clock_time_get"]),
+			// "wasi_snapshot_preview1": this.wasi.wasiImport,
+			"trealla": {
+				"host-call": this._host_call.bind(this),
+				"host-resume": this._host_resume.bind(this),
+			}
+		}
 		this.instance = await WebAssembly.instantiate(tpl, imports) as Instance;
 
 		// run it once it initialize the global interpreter
@@ -236,15 +246,16 @@ export class Prolog {
 		const _id = ++this.n;
 		const token = {};
 		
-		let stdoutbufs: Uint8Array[] = [];
-		let stderrbufs: Uint8Array[] = [];
+		// let stdoutbufs: Uint8Array[] = [];
+		// let stderrbufs: Uint8Array[] = [];
+
 		const readOutput = () => {
-			const stdout = this.wasi.getStdoutBuffer();
-			const stderr = this.wasi.getStderrBuffer();
-			if (stdout.length > 0)
-				stdoutbufs.push(stdout);
-			if (stderr.length > 0)
-				stderrbufs.push(stderr);
+			// const stdout = this.wasi.getStdoutBuffer();
+			// const stderr = this.wasi.getStderrBuffer();
+			// if (stdout.length > 0)
+			// 	stdoutbufs.push(stdout);
+			// if (stderr.length > 0)
+			// 	stderrbufs.push(stderr);
 		}
 
 		// standard WASI exports (from wasi.c)
@@ -267,6 +278,7 @@ export class Prolog {
 			}
 			return subq;
 		}
+		const os = this.os;
 		const ctrl = {
 			subq: NULL,
 			get subquery() {
@@ -277,11 +289,11 @@ export class Prolog {
 			alive: false,
 			stdout: function(str: string) {
 				if (!str) return;
-				stdoutbufs.push(new TextEncoder().encode(str));	
+				os.stdout.fd.write(new TextEncoder().encode(str));	
 			},
 			stderr: function(str: string) {
 				if (!str) return;
-				stderrbufs.push(new TextEncoder().encode(str));
+				os.stderr.fd.write(new TextEncoder().encode(str));
 			}
 		};
 		this.spawning.set(subqptr, ctrl);
@@ -347,10 +359,10 @@ export class Prolog {
 				}
 				// otherwise, pass to toplevel
 				const status = get_status(this.ptr) === TRUE;
-				const stdout = joinBuffers(stdoutbufs);
-				const stderr = joinBuffers(stderrbufs);
-				stdoutbufs = [];
-				stderrbufs = [];
+				const stdout = os.stdout.join();
+				const stderr = os.stderr.join();
+				os.stdout.reset();
+				os.stderr.reset();
 				if (stdout.byteLength === 0) {
 					const truth = toplevel.truth(this, status, stderr, encode);
 					if (truth === null) return;
@@ -421,7 +433,7 @@ export class Prolog {
 		}
 		const filename = await this.writeScratchFile(code);
 		await this.consult(filename);
-		this.fs.removeFile(filename);
+		// this.fs.removeFile(filename); // TODO
 	}
 
 	async consultTextInto(code: string, module = "user") {
@@ -459,18 +471,45 @@ export class Prolog {
 
 	async writeScratchFile(code: string | Uint8Array) {
 		const id = ++this.scratch;
-		const filename = `/tmp/scratch${id}.pl`;
-		const file = this.fs.open(filename, { write: true, create: true });
+		const filename = `./tmp/scratch${id}.pl`;
+		const file = this.os.tmp.dir.create_entry_for_path(filename, false);
+		let buf;
 
 		if (typeof code === "string") {
-			file.writeString(code);
+			buf = new TextEncoder().encode(code);
 		} else if (code instanceof Uint8Array) {
-			file.write(code)
+			buf = code;
 		} else {
 			throw new Error("trealla: invalid parameter for consulting: " + code);
 		}
 
+		(file.entry as File).data = buf;
 		return filename;
+	}
+
+	async writeFile(filename: string, data: string | Uint8Array) {
+		if (filename[0] == "/") filename = filename.slice(1);
+		const id = ++this.scratch;
+		const file = this.os.root.dir.create_entry_for_path(filename, false);
+		let buf;
+
+		console.log("RET:", file);
+
+		if (typeof data === "string") {
+			buf = new TextEncoder().encode(data);
+		} else if (data instanceof Uint8Array) {
+			buf = data;
+		} else {
+			throw new Error("trealla: invalid parameter for writeFile: " + data);
+		}
+
+		(file.entry as File).data = buf;
+		return filename;
+	}
+
+	async createDir(filename: string) {
+		if (filename[0] == "/") filename = filename.slice(1);
+		const file = this.os.root.dir.create_entry_for_path(filename, true);
 	}
 
 	addTask(query: AsyncGenerator<Answer & {goal: Goal}, void, unknown>) {
@@ -516,7 +555,7 @@ export class Prolog {
 	 *	Unique per interpreter, Prolog can read and write from it.
 	 *	See: https://github.com/wasmerio/wasmer-js */
 	get fs() {
-		return this.wasi.fs;
+		return null;// this.wasi.fs;
 	}
 
 	ctrl(subquery: Ptr<subquery_t>) {
@@ -632,18 +671,56 @@ const WASM_HOST_CALL_FAIL	= 4;
 type HostCallReply = typeof WASM_HOST_CALL_ERROR | typeof WASM_HOST_CALL_OK |
 	typeof WASM_HOST_CALL_YIELD | typeof WASM_HOST_CALL_CHOICE | typeof WASM_HOST_CALL_FAIL;
 
+class OutputStream {
+	bufs: Uint8Array[] = [];
+	fd: ConsoleStdout;
+	constructor() {
+		this.fd = new ConsoleStdout((buf) => {
+			if (buf.length > 0)
+				this.bufs.push(buf);
+		});
+	}
+	join(): Uint8Array {
+		return joinBuffers(this.bufs);
+	}
+	reset(): void {
+		// TODO: re-use buffers?
+		this.bufs = [];
+	}
+}
 
-function newWASI(library?: string, env?: Record<string, string>, quiet?: boolean) {
+type OS = {
+	stdout: OutputStream;
+	stderr: OutputStream;
+	tmp: PreopenDirectory;
+	root: PreopenDirectory;
+}
+
+function newOS(): OS {
+	return {
+		stdout: new OutputStream(),
+		stderr: new OutputStream(),
+		tmp: new PreopenDirectory("/tmp", new Map()),
+		root: new PreopenDirectory(".", new Map()),
+	};
+}
+
+function newWASI(os: OS, library?: string, env?: Record<string, string>, quiet?: boolean) {
 	const args = ["tpl", "--ns", "-g", "use_module(user), halt"];
 	if (library) args.push("--library", library);
 	if (quiet) args.push("-q");
+	
+	const { stdout, stderr } = os;
 
-	const wasi = new WASI({
-		args: args,
-		env: env
-	});
-	wasi.fs.createDir("/tmp");
-
+	const environ = env ? Object.entries(env).map(([k, v]) => `${k}=${v}`) : [];
+	let fds = [
+		new OpenFile(new File([])), // stdin
+		stdout.fd,
+		stderr.fd,
+		// os.tmp,
+		os.root,
+	];
+	const wasi = new WASI(args, environ, fds, {debug: true});
 	return wasi;
 }
 
