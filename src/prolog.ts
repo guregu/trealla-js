@@ -1,4 +1,4 @@
-import { ConsoleStdout, OpenFile, PreopenDirectory, File, WASI, OpenDirectory, Directory, Fd, strace } from '@bjorn3/browser_wasi_shim';
+import { ConsoleStdout, OpenFile, PreopenDirectory, File, WASI, OpenDirectory, Directory, Fd, strace } from '@guregu/browser_wasi_shim';
 
 import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, int_t, char_t, bool_t, size_t,
@@ -174,7 +174,7 @@ export class Prolog {
 	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 		    // *subq → ctrl
 	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();   // **subq → ctrl
 	os = newOS();
-	fs = new FS(this.os);
+	fs;
 
 	/**	Create a new Prolog interpreter instance. */
 	constructor(options: Partial<PrologOptions> = {}) {
@@ -184,6 +184,7 @@ export class Prolog {
 			quiet
 		} = options;
 		this.wasi = newWASI(this.os, library, env, quiet);
+		this.fs = new FS(this.wasi, this.os);
 		if ("FinalizationRegistry" in globalThis) {
 			this.finalizers = new FinalizationRegistry((task: Ctrl) => {
 				if (task.alive) {
@@ -685,6 +686,6 @@ function newWASI(os: OS, library?: string, env?: Record<string, string>, quiet?:
 		/* 3: */ os.tmp,
 		/* 4: */ os.root,
 	];
-	const wasi = new WASI(args, environ, fds, /*{debug: true}*/);
+	const wasi = new WASI(args, environ, fds, {debug: false});
 	return wasi;
 }
