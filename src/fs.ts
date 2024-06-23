@@ -38,6 +38,7 @@ export class FS {
 		}
 		this.os.root.dir.contents.delete(path);
 		this.os.root.dir.contents.set(to, file);
+		// TODO call wasi instead
 	}
 	metadata(path: string) {
 		path = fixPath(path);
