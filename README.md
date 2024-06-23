@@ -1,6 +1,6 @@
 # trealla-js
 
-~~Javascript~~ TypeScript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla) via [wasmer-js](https://github.com/wasmerio/wasmer-js).
+~~Javascript~~ TypeScript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla).
 
 Trealla is a quick and lean ISO Prolog interpreter.
 
@@ -210,6 +210,7 @@ You can disable this behavior by setting the query option `autoyield` to `0`.
 
 Each Prolog interpreter instance has its own virtual filesystem you can read and write to.
 For details, check out the [wasmer-js docs](https://github.com/wasmerio/wasmer-js#typescript-api).
+Although we don't use wasmer-js anymore, the same API is still provided.
 
 ```js
 const pl = new Prolog();

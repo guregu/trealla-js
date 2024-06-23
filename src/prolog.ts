@@ -12,13 +12,11 @@ import tpl_wasm from '../libtpl.wasm';
 let tpl: WebAssembly.Module;
 
 let initPromise = async function() {
-	// await initWasmer();
 	tpl = await WebAssembly.compile(tpl_wasm);
 }();
-// await initPromise;
 
 /** Load the Trealla and wasmer-js runtimes. */
-export function load() {
+export function load(): Promise<void> {
 	return initPromise;
 }
 
@@ -162,6 +160,8 @@ export type Tick = {
 /** Prolog interpreter instance. */
 export class Prolog {
 	wasi;
+	os = newOS();
+	fs;
 	instance!: Instance;
 	ptr: Ptr<prolog_t> = 0; // pointer to *prolog instance
 	n = 0;
@@ -173,8 +173,7 @@ export class Prolog {
 	tasks = new Map<number, Task>();		            // id → task
 	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 		    // *subq → ctrl
 	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();   // **subq → ctrl
-	os = newOS();
-	fs;
+
 
 	/**	Create a new Prolog interpreter instance. */
 	constructor(options: Partial<PrologOptions> = {}) {
@@ -185,6 +184,7 @@ export class Prolog {
 		} = options;
 		this.wasi = newWASI(this.os, library, env, quiet);
 		this.fs = new FS(this.wasi, this.os);
+		this.fs.createDir("/tmp");
 		if ("FinalizationRegistry" in globalThis) {
 			this.finalizers = new FinalizationRegistry((task: Ctrl) => {
 				if (task.alive) {
@@ -476,41 +476,17 @@ export class Prolog {
 	async writeScratchFile(code: string | Uint8Array) {
 		const id = ++this.scratch;
 		const filename = `./tmp/scratch${id}.pl`;
-		const file = this.os.tmp.dir.create_entry_for_path(filename, false);
-		let buf;
+		const file = this.fs.open(filename, {create: true, write: true});
 
 		if (typeof code === "string") {
-			buf = new TextEncoder().encode(code);
+			file.writeString(code);
 		} else if (code instanceof Uint8Array) {
-			buf = code;
+			file.write(code);
 		} else {
 			throw new Error("trealla: invalid parameter for consulting: " + code);
 		}
 
-		(file.entry as File).data = buf;
 		return filename;
-	}
-
-	async writeFile(filename: string, data: string | Uint8Array) {
-		if (filename[0] == "/") filename = filename.slice(1);
-		const file = this.os.root.dir.create_entry_for_path(filename, false);
-		let buf;
-
-		if (typeof data === "string") {
-			buf = new TextEncoder().encode(data);
-		} else if (data instanceof Uint8Array) {
-			buf = data;
-		} else {
-			throw new Error("trealla: invalid parameter for writeFile: " + data);
-		}
-
-		(file.entry as File).data = buf;
-		return filename;
-	}
-
-	async createDir(filename: string) {
-		if (filename[0] == "/") filename = filename.slice(1);
-		const file = this.os.root.dir.create_entry_for_path(filename, true);
 	}
 
 	addTask(query: AsyncGenerator<Answer & {goal: Goal}, void, unknown>) {
@@ -551,13 +527,6 @@ export class Prolog {
 		}
 		return task.promise;
 	}
-
-	/**	wasmer-js virtual filesystem.
-	 *	Unique per interpreter, Prolog can read and write from it.
-	 *	See: https://github.com/wasmerio/wasmer-js */
-	// get fs() {
-		// return null;// this.wasi.fs;
-	// }
 
 	ctrl(subquery: Ptr<subquery_t>) {
 		const ctrl = this.subqs.get(subquery);
@@ -683,9 +652,10 @@ function newWASI(os: OS, library?: string, env?: Record<string, string>, quiet?:
 		/* 0: */ new OpenFile(new File([])), // stdin
 		/* 1: */ os.stdout.fd,
 		/* 2: */ os.stderr.fd,
-		/* 3: */ os.tmp,
+		// /* 3: */ os.tmp,
 		/* 4: */ os.root,
 	];
+
 	const wasi = new WASI(args, environ, fds, {debug: false});
 	return wasi;
 }

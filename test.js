@@ -38,7 +38,7 @@ test("example", async (t) => {
 
 	await t.test("readDir", async(t) => {
 		const root = pl.fs.readDir(".");
-		assert.deepEqual(["greeting.pl", "lib"], root);
+		assert.deepEqual(["tmp", "greeting.pl", "lib"].sort(), root);
 
 		const libdir = pl.fs.readDir("/lib");
 		assert.deepEqual(["test.pl"], libdir);

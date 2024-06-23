@@ -15,8 +15,11 @@ console.dir(
 console.dir(
 	await pl.queryOnce(`fetch("https://httpbin.org/get", Content).`, {program: `
 	:- use_module(library(format)).
+	:- use_module(library(dcgs)).
+	:- use_module(library(pseudojson)).
 	fetch(URL, Content) :-
-	  phrase(format_("return fetch(~w).then(x => x.text());", [URL]), JS),
+	  json_chars(URL, Cs),
+	  phrase(format_("return fetch(~s).then(x => x.text());", [Cs]), JS),
 	  js_eval_json(JS, Content), write(Content).
 	`, format: "prolog"}), {depth: null});
 
