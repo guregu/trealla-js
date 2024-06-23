@@ -1,10 +1,13 @@
-import { ConsoleStdout, Directory, PreopenDirectory,
-		OpenFile, File as WASIFile, Path,
-		WASI, wasi } from "@guregu/browser_wasi_shim";
+import {
+	ConsoleStdout, Directory, PreopenDirectory,
+	OpenFile, File as WASIFile, Path,
+	WASI, wasi,
+} from "@guregu/browser_wasi_shim";
 
 export class FS {
 	os;
 	wasi;
+
 	constructor(wasi: WASI, os: OS) {
 		this.wasi = wasi;
 		this.os = os;
