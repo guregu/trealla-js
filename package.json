@@ -1,15 +1,13 @@
 {
   "name": "trealla",
-  "version": "0.18.8",
+  "version": "0.18.9",
   "description": "Trealla Prolog bindings for JS",
   "main": "trealla.js",
   "type": "module",
   "types": "index.d.ts",
   "files": [
     "ATTRIBUTION",
-    "trealla.js.map",
-    "index.d.ts",
-    "index.d.ts.map"
+    "index.d.ts"
   ],
   "repository": {
     "type": "git",

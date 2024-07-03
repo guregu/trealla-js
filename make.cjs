@@ -12,9 +12,8 @@ const stdLibBrowser = require('node-stdlib-browser');
 		format: 'esm',
 		loader: {'.wasm': 'binary'},
 		target: ['es2021', 'safari15'],
-		minify: true,
+		minify: false,
 		keepNames: true,
-		sourcemap: true,
 		inject: [require.resolve('node-stdlib-browser/helpers/esbuild/shim')],
 		define: {
 			Buffer: 'Buffer'
