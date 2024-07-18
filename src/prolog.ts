@@ -318,6 +318,12 @@ export class Prolog {
 				if (pl_did_yield(ctrl.subq) === TRUE) {
 					const thunk = this.yielding[ctrl.subq];
 					if (!thunk) {
+						readOutput();
+						
+						// TODO: autoyield temporarily disabled
+						// see: https://github.com/trealla-prolog/trealla/issues/569
+
+						/*
 						// guest yielded without having called '$host_call'/2
 						let now;
 						if (autoyield > 0 && (now = Date.now()) - lastYield > autoyield) {
@@ -326,6 +332,7 @@ export class Prolog {
 							pl_yield_at(ctrl.subq, autoyield);
 							readOutput();
 						}
+						*/
 						continue
 					}
 					try {
