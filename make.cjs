@@ -9,7 +9,7 @@ const { dtsPlugin } = require('esbuild-plugin-d.ts');
 		format: 'esm',
 		loader: {'.wasm': 'binary'},
 		target: ['es2022'],
-		minify: true,
+		minify: false,
 		keepNames: true,
 		sourcemap: true,
 		plugins: [dtsPlugin()]
