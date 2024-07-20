@@ -2,8 +2,8 @@ import {
 	ConsoleStdout, Directory, PreopenDirectory,
 	OpenFile, File as WASIFile, Path,
 	WASI, wasi,
-} from "@guregu/browser_wasi_shim";
-import { wasiError } from "./c";
+} from 'browser_wasi_shim_gaiden';
+import { wasiError } from './c';
 
 export class FS {
 	os;
@@ -83,7 +83,7 @@ export class FS {
 		// 	return new File(entry as WASIFile); // TODO
 		// }
 		const rights = BigInt(options.write ? wasi.RIGHTS_FD_WRITE : 0 );
-		let oflags = (options.create ? wasi.OFLAGS_CREAT : 0) | 
+		let oflags = (options.create ? wasi.OFLAGS_CREAT : 0) |
 					(options.truncate ? wasi.OFLAGS_TRUNC : 0);
 		let fdflags = (options.append ? wasi.FDFLAGS_APPEND : 0);
 		const { ret, fd_obj } = this.os.root.path_open(0, path, oflags, rights, rights, fdflags);

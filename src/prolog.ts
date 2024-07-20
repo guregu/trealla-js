@@ -1,4 +1,4 @@
-import { ConsoleStdout, OpenFile, PreopenDirectory, File, WASI, OpenDirectory, Directory, Fd, strace } from '@guregu/browser_wasi_shim';
+import { ConsoleStdout, OpenFile, PreopenDirectory, File, WASI, OpenDirectory, Directory, Fd, strace } from 'browser_wasi_shim_gaiden';
 
 import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, int_t, char_t, bool_t, size_t,
@@ -249,7 +249,7 @@ export class Prolog {
 
 		const _id = ++this.n;
 		const token = {};
-		
+
 		// let stdoutbufs: Uint8Array[] = [];
 		// let stderrbufs: Uint8Array[] = [];
 
@@ -293,7 +293,7 @@ export class Prolog {
 			alive: false,
 			stdout: function(str: string) {
 				if (!str) return;
-				os.stdout.fd.write(new TextEncoder().encode(str));	
+				os.stdout.fd.write(new TextEncoder().encode(str));
 			},
 			stderr: function(str: string) {
 				if (!str) return;
@@ -589,7 +589,7 @@ export class Prolog {
 
 		if (!cont)
 			return WASM_HOST_CALL_OK;
-		
+
 		return WASM_HOST_CALL_YIELD;
 	}
 
