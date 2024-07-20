@@ -23,7 +23,13 @@ export class FS {
 			throw wasiError(ret, name);
 		if (!(entry instanceof Directory))
 			throw new Error(`not a directory: ${name}`);
-		return Array.from(entry.contents.keys()).sort();
+		// TODO: re-do this
+		const root = fixPath(path.to_path_string());
+		let prefix = root;
+		if (root && !root.endsWith("/")) {
+			prefix += "/";
+		}
+		return Array.from(entry.contents.keys()).map(x => `${prefix}${x}`).sort();
 	}
 
 	createDir(path: string) {
@@ -77,11 +83,6 @@ export class FS {
 
 	open(path: string, options: Partial<OpenMode> = {create: false, write: false}) {
 		path = fixPath(path);
-		// if (options.create) {
-		// 	const { ret, entry } = this.os.root.dir.create_entry_for_path(path, false);
-		// 	if (ret !== 0) throw wasiError(ret, path);
-		// 	return new File(entry as WASIFile); // TODO
-		// }
 		const rights = BigInt(options.write ? wasi.RIGHTS_FD_WRITE : 0 );
 		let oflags = (options.create ? wasi.OFLAGS_CREAT : 0) |
 					(options.truncate ? wasi.OFLAGS_TRUNC : 0);
@@ -119,7 +120,7 @@ export class File {
 		} else if (f instanceof WASIFile) {
 			this.entity = f;
 		} else {
-			throw new Error(`not a file: ${f}`);
+			throw new Error(`not a file: ${JSON.stringify(Object.entries(f))}`);
 		}
 	}
 
