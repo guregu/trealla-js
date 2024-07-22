@@ -29,7 +29,7 @@ export class FS {
 		if (root && !root.endsWith("/")) {
 			prefix += "/";
 		}
-		return Array.from(entry.contents.keys()).map(x => `${prefix}${x}`).sort();
+    return Array.from(entry.contents.keys()).map(x => ({ path: `${prefix}${x}` })).sort();
 	}
 
 	createDir(path: string) {
