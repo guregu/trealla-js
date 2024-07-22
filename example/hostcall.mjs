@@ -28,7 +28,7 @@ console.dir(
 	{depth: null});
 
 console.dir(
-	await pl.queryOnce(`http_consult("https://raw.githubusercontent.com/guregu/worker-prolog/978c956801ffff83f190450e5c0325a9d34b064a/src/views/examples/fizzbuzz.pl"), fizzbuzz(1, 21).`, {format: "json"}),
+	await pl.queryOnce(`use_module(library(wasm_js)), http_consult(fizzbuzz:"https://raw.githubusercontent.com/guregu/worker-prolog/978c956801ffff83f190450e5c0325a9d34b064a/src/views/examples/fizzbuzz.pl"), use_module(fizzbuzz), fizzbuzz(1, 21).`, {format: "json"}),
 	{depth: null});
 
 for await (const x of pl.query(`between(1,3,N), once(phrase(format_("return ~w;", [N]), JS)), js_eval_json(JS, Got)`, {format: "json"})) {

@@ -54,7 +54,7 @@ import { Prolog, load, atom } from 'https://esm.sh/trealla';
 await load();
 
 // Create a new Prolog interpreter
-// Each interpreter is independent and persistent 
+// Each interpreter is independent and persistent
 const pl = new Prolog();
 
 // Queries are async generators.
@@ -450,7 +450,7 @@ sleep(Seconds).
 
 ## library(wasm_js)
 
-Module `library(wasm_js)` is autoloaded. It provides predicates for calling into the host.
+Module `library(wasm_js)` provides predicates for calling into the host.
 
 ### http_consult/1
 

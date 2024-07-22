@@ -54,10 +54,10 @@ export class Compound<Functor extends string, Arguments extends Args> {
 	toProlog() {
 		if (this.args.length === 0)
 			return escapeAtom(this.functor);
-	
+
 		if (this.args.length === 2 && (this.functor === ":" || this.functor === "/"))
 			return `${toProlog(this.args[0])}${this.functor}${toProlog(this.args[1])}`;
-	
+
 		return `${escapeAtom(this.functor)}(${this.args.map(toProlog).join(",")})`
 	}
 	toString() { return this.toProlog(); }
@@ -72,8 +72,8 @@ export function isAtom(x: unknown, name?: string): x is Atom {
 
 export function isCompound<F extends string>(x: unknown, name?: F, arity?: number): x is Compound<F, Args> {
 	return x instanceof Compound &&
-		(typeof name == "undefined" || x.functor == name) &&
-		(typeof arity == "undefined" || x.args.length == arity);
+		(typeof name === "undefined" || x.functor === name) &&
+		(typeof arity === "undefined" || x.args.length === arity);
 }
 
 export function isList(x: unknown): x is List {
@@ -172,9 +172,9 @@ export function toProlog(obj: unknown): string {
 
 	if (obj === null)
 		return "{null}";
-	
+
 	if ("toProlog" in obj && typeof obj.toProlog === "function")
-		return obj.toProlog(); 
+		return obj.toProlog();
 
 	if (obj instanceof Uint8Array)
 		return escapeString(new TextDecoder().decode(obj));
