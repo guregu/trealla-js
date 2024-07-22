@@ -2,19 +2,21 @@ import {
 	ConsoleStdout, Directory, PreopenDirectory,
 	OpenFile, File as WASIFile, Path,
 	WASI, wasi,
+	Inode,
 } from 'browser_wasi_shim_gaiden';
 import { wasiError } from './c';
 
+/** Virtual filesystem roughly compatible with wasmer-js. */
 export class FS {
-	os;
-	wasi;
+	private os;
+	private wasi;
 
-	constructor(wasi: WASI, os: OS) {
+	private constructor(wasi: WASI, os: OS) {
 		this.wasi = wasi;
 		this.os = os;
 	}
 
-	readDir(name: string): Array<any> {
+	readDir(name: string): Array<DirEntry> {
 		const { path } = Path.from(fixPath(name));
 		if (!path)
 			throw new Error("directory not found: " + name);
@@ -29,7 +31,9 @@ export class FS {
 		if (root && !root.endsWith("/")) {
 			prefix += "/";
 		}
-    return Array.from(entry.contents.keys()).map(x => ({ path: `${prefix}${x}` })).sort();
+		return Array.from(entry.contents.entries())
+		.map(toDirent(prefix))
+		.sort(cmpDirent);
 	}
 
 	createDir(path: string) {
@@ -94,6 +98,72 @@ export class FS {
 	}
 }
 
+export type DirEntry = {
+  /** Full file path. */
+  path: string;
+  inode: Inode;
+  metadata: {
+    dev: bigint
+    ino: bigint;
+    filetype: {
+      dir: boolean;
+      file: boolean;
+      symlink: boolean;
+      type: FileType;
+    };
+    nlink: bigint;
+    /** File size. */
+    size: bigint;
+    /** Last access time. */
+    accessed: bigint;
+    /** Last modified time. */
+    modified: bigint;
+    /** Creation time. */
+    created: bigint;
+  };
+}
+
+function toDirent(prefix: string) {
+  return function ([path, inode]: [string, Inode]): DirEntry {
+    const stat = inode.stat();
+    return {
+      path: prefix + path,
+      inode: inode,
+      metadata: {
+        dev: stat.dev,
+        ino: stat.ino,
+        filetype: {
+          dir: stat.filetype === wasi.FILETYPE_DIRECTORY,
+          file: stat.filetype === wasi.FILETYPE_REGULAR_FILE,
+          symlink: stat.filetype === wasi.FILETYPE_SYMBOLIC_LINK,
+          type: stat.filetype as FileType,
+        },
+        nlink: stat.nlink,
+        size: stat.size,
+        accessed: stat.atim,
+        modified: stat.mtim,
+        created: stat.ctim,
+      }
+    };
+  };
+}
+
+type FileType = typeof wasi.FILETYPE_UNKNOWN |
+  typeof wasi.FILETYPE_BLOCK_DEVICE |
+  typeof wasi.FILETYPE_CHARACTER_DEVICE |
+  typeof wasi.FILETYPE_DIRECTORY |
+  typeof wasi.FILETYPE_REGULAR_FILE |
+  typeof wasi.FILETYPE_SOCKET_DGRAM |
+  typeof wasi.FILETYPE_SOCKET_STREAM |
+  typeof wasi.FILETYPE_SYMBOLIC_LINK;
+
+function cmpDirent(a: DirEntry, b: DirEntry): number {
+  if (a.path === b.path) {
+    return 0;
+  }
+  return a.path < b.path ? -1 : 1;
+}
+
 export type OpenMode = {
 	create: boolean;
 	write: boolean;
@@ -110,10 +180,10 @@ function fixPath(path: string): string {
 }
 
 export class File {
-	openfile?: OpenFile;
-	entity: WASIFile;
+	private openfile?: OpenFile;
+	private entity: WASIFile;
 
-	constructor(f: WASIFile | OpenFile) {
+	private constructor(f: WASIFile | OpenFile) {
 		if (f instanceof OpenFile) {
 			this.openfile = f;
 			this.entity = this.openfile.file;
