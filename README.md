@@ -209,7 +209,7 @@ You can disable this behavior by setting the query option `autoyield` to `0`.
 ### Virtual Filesystem
 
 Each Prolog interpreter instance has its own virtual filesystem you can read and write to.
-For details, check out the [wasmer-js docs](https://github.com/wasmerio/wasmer-js#typescript-api).
+For details, check out the [wasmer-js docs for `MemFS`](https://github.com/wasmerio/wasmer-js/tree/1184d7acbb77d424003b701278d2580107c50918?tab=readme-ov-file#typescript-api).
 Although we don't use wasmer-js anymore, the same API is still provided.
 
 ```js
@@ -261,7 +261,7 @@ declare module 'trealla' {
     public consultText(text: string | Uint8Array): Promise<void>;
 
     /** Use fs to manipulate the virtual filesystem. */
-    public readonly fs: any; /** wasmer-js filesystem */
+    public readonly fs: FS;
   }
 
   interface PrologOptions {
