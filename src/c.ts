@@ -19,6 +19,7 @@ export interface ABI extends WebAssembly.Exports {
 	memory: WebAssembly.Memory;
 	canonical_abi_realloc<T>(ptr: Ptr<T> | typeof NULL, old_size: size_t, align: int_t, size: size_t): Ptr<T>;
 	canonical_abi_free<T>(ptr: Ptr<T>, size: size_t, align: int_t): void;
+	_start(): int_t;
 }
 
 export class CString {
@@ -78,3 +79,89 @@ export type Deref<T> = T extends Ptr<infer U> ? U extends number ? U : never : n
 export function writeUint32<T>(instance: WASI, addr: Ptr<T>, int: number) {
 	new Uint32Array(instance.exports.memory.buffer)[addr / 4] = int;
 }
+
+
+export function wasiError(errno: number, context = "WASI error") {
+	let desc = strerror[errno] ?? "unknown error code";
+	return new Error(`${context}: ${desc} (${errno})`);
+}
+
+const strerror = [
+	"ERRNO_SUCCESS",
+	"ERRNO_2BIG",
+	"ERRNO_ACCES",
+	"ERRNO_ADDRINUSE",
+	"ERRNO_ADDRNOTAVAIL",
+	"ERRNO_AFNOSUPPORT",
+	"ERRNO_AGAIN",
+	"ERRNO_ALREADY",
+	"ERRNO_BADF",
+	"ERRNO_BADMSG",
+	"ERRNO_BUSY",
+	"ERRNO_CANCELED",
+	"ERRNO_CHILD",
+	"ERRNO_CONNABORTED",
+	"ERRNO_CONNREFUSED",
+	"ERRNO_CONNRESET",
+	"ERRNO_DEADLK",
+	"ERRNO_DESTADDRREQ",
+	"ERRNO_DOM",
+	"ERRNO_DQUOT",
+	"ERRNO_EXIST",
+	"ERRNO_FAULT",
+	"ERRNO_FBIG",
+	"ERRNO_HOSTUNREACH",
+	"ERRNO_IDRM",
+	"ERRNO_ILSEQ",
+	"ERRNO_INPROGRESS",
+	"ERRNO_INTR",
+	"ERRNO_INVAL",
+	"ERRNO_IO",
+	"ERRNO_ISCONN",
+	"ERRNO_ISDIR",
+	"ERRNO_LOOP",
+	"ERRNO_MFILE",
+	"ERRNO_MLINK",
+	"ERRNO_MSGSIZE",
+	"ERRNO_MULTIHOP",
+	"ERRNO_NAMETOOLONG",
+	"ERRNO_NETDOWN",
+	"ERRNO_NETRESET",
+	"ERRNO_NETUNREACH",
+	"ERRNO_NFILE",
+	"ERRNO_NOBUFS",
+	"ERRNO_NODEV",
+	"ERRNO_NOENT",
+	"ERRNO_NOEXEC",
+	"ERRNO_NOLCK",
+	"ERRNO_NOLINK",
+	"ERRNO_NOMEM",
+	"ERRNO_NOMSG",
+	"ERRNO_NOPROTOOPT",
+	"ERRNO_NOSPC",
+	"ERRNO_NOSYS",
+	"ERRNO_NOTCONN",
+	"ERRNO_NOTDIR",
+	"ERRNO_NOTEMPTY",
+	"ERRNO_NOTRECOVERABLE",
+	"ERRNO_NOTSOCK",
+	"ERRNO_NOTSUP",
+	"ERRNO_NOTTY",
+	"ERRNO_NXIO",
+	"ERRNO_OVERFLOW",
+	"ERRNO_OWNERDEAD",
+	"ERRNO_PERM",
+	"ERRNO_PIPE",
+	"ERRNO_PROTO",
+	"ERRNO_PROTONOSUPPORT",
+	"ERRNO_PROTOTYPE",
+	"ERRNO_RANGE",
+	"ERRNO_ROFS",
+	"ERRNO_SPIPE",
+	"ERRNO_SRCH",
+	"ERRNO_STALE",
+	"ERRNO_TIMEDOUT",
+	"ERRNO_TXTBSY",
+	"ERRNO_XDEV",
+	"ERRNO_NOTCAPABLE",
+];

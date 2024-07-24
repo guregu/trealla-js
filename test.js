@@ -14,22 +14,36 @@ test("example", async (t) => {
 			GREET: "greetings"
 		}
 	});
-	
-	await t.test("filesystem + consult", async (t) => {
-		pl.fs.open("/greeting.pl", { write: true, create: true }).writeString(`
+
+	await t.test("filesystem", async(t) => {
+		const greeting_pl = `
 			:- module(greeting, [hello/1]).
 			:- dynamic(hello/1).
 			hello(world).
 			hello(世界).
-		`);
-	
+		`;
+		pl.fs.open("/greeting.pl", { write: true, create: true }).writeString(greeting_pl);
+
+		const file = pl.fs.open("/greeting.pl", {create: false, write: false});
+		assert.deepEqual(greeting_pl, file.readString());
+
 		// custom library we can load from the use_module(library(...)) directive
 		pl.fs.createDir("/lib");
 		pl.fs.open("/lib/test.pl", { write: true, create: true }).writeString(`library(ok).`);
-		
+	});
+
+	await t.test("consult", async (t) => {
 		await pl.consult("greeting");
 	});
-	
+
+	await t.test("readDir", async(t) => {
+		const root = pl.fs.readDir(".").map(x => x.path);
+		assert.deepEqual(["tmp", "greeting.pl", "lib"].sort(), root);
+
+		const libdir = pl.fs.readDir("/lib").map(x => x.path);
+		assert.deepEqual(["lib/test.pl"], libdir);
+	});
+
 	assert.deepEqual(
 		await pl.queryOnce("assertz(lang(prolog)), greeting:assertz(hello('Welt'))."),
 		{
@@ -37,7 +51,7 @@ test("example", async (t) => {
 			answer: {},
 		}
 	);
-	
+
 	await t.test("vanilla toplevel", async (t) => {
 		await expect(
 			pl.query(
@@ -60,7 +74,7 @@ test("example", async (t) => {
 					stdout: "hello Welt from prolog!\n"
 				},
 			]
-		);	
+		);
 
 		await t.test("atoms encoded to string option", async (t) => {
 			await expect(
@@ -85,7 +99,7 @@ test("example", async (t) => {
 						stdout: "hello Welt from prolog!\n"
 					},
 				]
-			);	
+			);
 		});
 	});
 
@@ -100,7 +114,7 @@ test("example", async (t) => {
 				"hello 世界 from prolog!\nPlanet = 世界, Lang = prolog.",
 				"hello Welt from prolog!\nPlanet = 'Welt', Lang = prolog.",
 			]
-		);	
+		);
 	});
 });
 

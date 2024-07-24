@@ -78,7 +78,7 @@ export const delay_1 = new Predicate<Compound<"delay", [number]>>(
 			throw type_error("number", time, goal.pi);
 		if (time < 0)
 			throw domain_error("not_less_than_zero", time, goal.pi);
-	
+
 		await new Promise(resolve => setTimeout(resolve, time));
 		return true;
 	}
@@ -243,7 +243,7 @@ export const await_any_3 = new Predicate<Compound<"await_any", [PromiseTerm[], V
 		const tick = await Promise.any(ps) as Tick;
 		if (!tick)
 			return false;
-		
+
 		const win = tokens.find(x => x.args[0] === tick.task_id) as PromiseTerm;
 		const rest = tokens.filter(x => x.args[0] !== tick.task_id);
 
@@ -336,7 +336,7 @@ export const sys_await_all_1 = new Predicate<Compound<Functor, [PromiseTerm[]]>>
 		return goal;
 	}
 );
-	
+
 // TODO: let predicates be async generators?
 // '$await_some'(Fs, Fs_OK, Fs_Done)
 export const sys_await_some_3 = new Predicate<Compound<Functor, [PromiseTerm[], Variable|PromiseTerm[], PromiseTerm[]]>>(
@@ -392,7 +392,7 @@ export const sys_await_some_3 = new Predicate<Compound<Functor, [PromiseTerm[], 
 
 		if (ok.length === 0)
 			return false;
-		
+
 		goal.args[1] = ok;
 		goal.args[2] = done;
 		return goal;

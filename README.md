@@ -1,6 +1,6 @@
 # trealla-js
 
-~~Javascript~~ TypeScript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla) via [wasmer-js](https://github.com/wasmerio/wasmer-js).
+~~Javascript~~ TypeScript bindings for [Trealla Prolog](https://github.com/trealla-prolog/trealla).
 
 Trealla is a quick and lean ISO Prolog interpreter.
 
@@ -54,7 +54,7 @@ import { Prolog, load, atom } from 'https://esm.sh/trealla';
 await load();
 
 // Create a new Prolog interpreter
-// Each interpreter is independent and persistent 
+// Each interpreter is independent and persistent
 const pl = new Prolog();
 
 // Queries are async generators.
@@ -210,6 +210,7 @@ You can disable this behavior by setting the query option `autoyield` to `0`.
 
 Each Prolog interpreter instance has its own virtual filesystem you can read and write to.
 For details, check out the [wasmer-js docs](https://github.com/wasmerio/wasmer-js#typescript-api).
+Although we don't use wasmer-js anymore, the same API is still provided.
 
 ```js
 const pl = new Prolog();
@@ -449,7 +450,7 @@ sleep(Seconds).
 
 ## library(wasm_js)
 
-Module `library(wasm_js)` is autoloaded. It provides predicates for calling into the host.
+Module `library(wasm_js)` provides predicates for calling into the host.
 
 ### http_consult/1
 
