@@ -444,8 +444,8 @@ export class Prolog {
 		if (!this.instance) {
 			await this.init();
 		}
-		// Module:'$load_chars'(Code)
-		const goal = new Compound(":", [new Atom(module), new Compound("$load_chars", [code])]);
+		// load_text(Code, [module(Module)]).
+		const goal = new Compound("load_text", [code, [new Compound("module", [new Atom(module)])]]);
 		const reply = await this.queryOnce(goal.toProlog());
 		if (reply.status !== "success") {
 			throw new Error("trealla: consult text failed");
