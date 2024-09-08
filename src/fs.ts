@@ -11,7 +11,7 @@ export class FS {
 	private os;
 	private wasi;
 
-	private constructor(wasi: WASI, os: OS) {
+	constructor(wasi: WASI, os: OS) {
 		this.wasi = wasi;
 		this.os = os;
 	}
@@ -183,7 +183,7 @@ export class File {
 	private openfile?: OpenFile;
 	private entity: WASIFile;
 
-	private constructor(f: WASIFile | OpenFile) {
+	constructor(f: WASIFile | OpenFile) {
 		if (f instanceof OpenFile) {
 			this.openfile = f;
 			this.entity = this.openfile.file;
@@ -281,7 +281,6 @@ class OutputStream {
 		this.bufs = [];
 	}
 }
-
 
 function joinBuffers(bufs: Uint8Array[]) {
 	if (bufs.length === 0) {
