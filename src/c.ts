@@ -80,7 +80,6 @@ export function writeUint32<T>(instance: WASI, addr: Ptr<T>, int: number) {
 	new Uint32Array(instance.exports.memory.buffer)[addr / 4] = int;
 }
 
-
 export function wasiError(errno: number, context = "WASI error") {
 	let desc = strerror[errno] ?? "unknown error code";
 	return new Error(`${context}: ${desc} (${errno})`);
