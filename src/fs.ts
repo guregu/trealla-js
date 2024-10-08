@@ -1,8 +1,7 @@
 import {
 	ConsoleStdout, Directory, PreopenDirectory,
-	OpenFile, File as WASIFile, Path,
+	OpenFile, File as WASIFile, Path, Inode,
 	WASI, wasi,
-	Inode,
 } from 'browser_wasi_shim_gaiden';
 import { wasiError } from './c';
 
