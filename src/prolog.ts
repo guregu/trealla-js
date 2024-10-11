@@ -1,10 +1,10 @@
-import { ConsoleStdout, OpenFile, PreopenDirectory, File, WASI, OpenDirectory, Directory, Fd, strace } from 'browser_wasi_shim_gaiden';
+import { OpenFile, File, WASI } from 'browser_wasi_shim_gaiden';
 
 import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, int_t, char_t, bool_t, size_t,
 	WASI as StandardInstance, ABI } from './c';
 import { FORMATS, Toplevel } from './toplevel';
-import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term, isTerm, Args } from './term';
+import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term, isTerm } from './term';
 import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, Continuation } from './interop';
 import { FS, newOS, OS } from './fs';
 
@@ -20,73 +20,68 @@ export function load(): Promise<void> {
 	return initPromise;
 }
 
-// OpenDirectory.prototype.path_readlink = function(path_str: string): { ret: number; data: string | null } {
-// 	const ret = this.path_filestat_get(0, path_str);
-// 	ret.filestat.
-// }
-
 export interface PrologOptions {
-    /** Library files path (default: "/library")
-        This is to set the search path for use_module(library(...)). */
-    library?: string;
-    /** Environment variables.
-        Accessible with the predicate getenv/2. */
-    env?: Record<string, string>;
-    /** Quiet mode. Disables warnings printed to stderr if true. */
-    quiet?: boolean;
-    /** Manually specify module instead of the default. */
-    module?: WebAssembly.Module;
+	/** Library files path (default: "/library")
+		This is to set the search path for use_module(library(...)). */
+	library?: string;
+	/** Environment variables.
+		Accessible with the predicate getenv/2. */
+	env?: Record<string, string>;
+	/** Quiet mode. Disables warnings printed to stderr if true. */
+	quiet?: boolean;
+	/** Manually specify module instead of the default. */
+	module?: WebAssembly.Module;
 }
 
 export interface QueryOptions {
-    /** Mapping of variables to bind in the query. */
-    bind?: Substitution;
-    /** Prolog program text to evaluate before the query. */
-    program?: string | Uint8Array;
-    /** Answer format. This changes the return type of the query generator.
-        `"json"` (default) returns Javascript objects.
-        `"prolog"` returns the standard Prolog toplevel output as strings.
-        You can add custom formats to the global `FORMATS` object.
-        You can also pass in a `Toplevel` object directly. */
-    format?: keyof typeof FORMATS | Toplevel<any, any>;
-    /** Encoding options for "json" or custom formats. */
-    encode?: EncodingOptions;
-    /** Automatic yield interval in milliseconds. Default is 20ms. */
-    autoyield?: number;
+	/** Mapping of variables to bind in the query. */
+	bind?: Substitution;
+	/** Prolog program text to evaluate before the query. */
+	program?: string | Uint8Array;
+	/** Answer format. This changes the return type of the query generator.
+		`"json"` (default) returns Javascript objects.
+		`"prolog"` returns the standard Prolog toplevel output as strings.
+		You can add custom formats to the global `FORMATS` object.
+		You can also pass in a `Toplevel` object directly. */
+	format?: keyof typeof FORMATS | Toplevel<any, any>;
+	/** Encoding options for "json" or custom formats. */
+	encode?: EncodingOptions;
+	/** Automatic yield interval in milliseconds. Default is 20ms. */
+	autoyield?: number;
 }
 
 export type EncodingOptions = JSONEncodingOptions | PrologEncodingOptions | Record<string, unknown>;
 
 export interface JSONEncodingOptions {
-    /** Encoding for Prolog atoms. Default is "object". */
-    atoms?: "string" | "object";
-    /** Encoding for Prolog strings. Default is "string". */
-    strings?: "string" | "list";
+	/** Encoding for Prolog atoms. Default is "object". */
+	atoms?: "string" | "object";
+	/** Encoding for Prolog strings. Default is "string". */
+	strings?: "string" | "list";
 
-    /** Functor for compounds of arity 1 to be converted to booleans.
-        For example, `"{}"` to turn the Prolog term `{true}` into true ala Tau,
-        or `"@"` for SWI-ish behavior that uses `@(true)`. */
-    booleans?: string;
-    /** Functor for compounds of arity 1 to be converted to null.
-        For example, `"{}"` to turn the Prolog term `{null}` into null`. */
-    nulls?: string;
-    /** Functor for compounds of arity 1 to be converted to undefined.
-        For example, `"{}"` to turn the Prolog term `{undefined}` into undefined`. */
-    undefineds?: string;
+	/** Functor for compounds of arity 1 to be converted to booleans.
+		For example, `"{}"` to turn the Prolog term `{true}` into true ala Tau,
+		or `"@"` for SWI-ish behavior that uses `@(true)`. */
+	booleans?: string;
+	/** Functor for compounds of arity 1 to be converted to null.
+		For example, `"{}"` to turn the Prolog term `{null}` into null`. */
+	nulls?: string;
+	/** Functor for compounds of arity 1 to be converted to undefined.
+		For example, `"{}"` to turn the Prolog term `{undefined}` into undefined`. */
+	undefineds?: string;
 }
 
 export interface PrologEncodingOptions {
-    /** Include the fullstop "." in results. */
-    /** True by default. */
-    dot?: boolean;
+	/** Include the fullstop "." in results. */
+	/** True by default. */
+	dot?: boolean;
 }
 
 /** Answer for the "json" format. */
 export type Answer = {
-    /** Standard output text (`user_output` stream in Prolog) */
-    stdout?: string;
-    /** Standard error text (`user_error` stream in Prolog) */
-    stderr?: string;
+	/** Standard output text (`user_output` stream in Prolog) */
+	stdout?: string;
+	/** Standard error text (`user_error` stream in Prolog) */
+	stderr?: string;
 } & (Success | Failure | ErrorReply)
 
 export interface Success {
@@ -123,24 +118,24 @@ export type Ctrl = {
 }
 
 interface Instance extends StandardInstance {
-    exports: Trealla;
+	exports: Trealla;
 }
 
 interface Trealla extends ABI {
 	pl_global(): Ptr<prolog_t>;
-    pl_query(pl: Ptr<prolog_t>, goal: Ptr<char_t>, subqptr: Ptr<Ptr<subquery_t>>, autoyield: int_t): bool_t;
-    pl_redo(pl: Ptr<prolog_t>): bool_t;
-    pl_done(pl: Ptr<prolog_t>): void;
-    get_status(pl: Ptr<prolog_t>): bool_t;
-    pl_did_yield(subquery: Ptr<subquery_t>): bool_t;
-    pl_yield_at(subquery: Ptr<subquery_t>, msec: int_t): void;
-    pl_consult(pl: Ptr<prolog_t>, str: Ptr<char_t>): bool_t;
+	pl_query(pl: Ptr<prolog_t>, goal: Ptr<char_t>, subqptr: Ptr<Ptr<subquery_t>>, autoyield: int_t): bool_t;
+	pl_redo(pl: Ptr<prolog_t>): bool_t;
+	pl_done(pl: Ptr<prolog_t>): void;
+	get_status(pl: Ptr<prolog_t>): bool_t;
+	pl_did_yield(subquery: Ptr<subquery_t>): bool_t;
+	pl_yield_at(subquery: Ptr<subquery_t>, msec: int_t): void;
+	pl_consult(pl: Ptr<prolog_t>, str: Ptr<char_t>): bool_t;
 }
 
 export interface Thunk {
-    cont?: AsyncGenerator<Continuation<Goal>, Continuation<Goal>, void>;
-    value?: Goal | boolean;
-    done: boolean;
+	cont?: AsyncGenerator<Continuation<Goal>, Continuation<Goal>, void>;
+	value?: Goal | boolean;
+	done: boolean;
 }
 
 export interface Task {
@@ -151,10 +146,10 @@ export interface Task {
 }
 
 export type Tick = {
-    task_id: number,
-    answer: Answer & {goal: Goal} | undefined,
-    time: number,
-    depth: number
+	task_id: number,
+	answer: Answer & {goal: Goal} | undefined,
+	time: number,
+	depth: number
 }
 
 /** Prolog interpreter instance. */
@@ -169,10 +164,10 @@ export class Prolog {
 	scratch = 0;
 	finalizers;
 	yielding: Record<Ptr<subquery_t>, Thunk> = {};		// *subq → maybe promise
-	procs: Record<string, Predicate<any>> = {};			// pi → predicate
-	tasks = new Map<number, Task>();		            // id → task
-	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 		    // *subq → ctrl
-	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();   // **subq → ctrl
+	procs: Record<string, Predicate<any>> = {};				// pi → predicate
+	tasks = new Map<number, Task>();									// id → task
+	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 				// *subq → ctrl
+	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();	// **subq → ctrl
 
 
 	/**	Create a new Prolog interpreter instance. */
@@ -454,8 +449,8 @@ export class Prolog {
 	}
 
 	async register<G extends Goal>(pred: Predicate<G> | Predicate<Goal>[], module = "user") {
-        if (Array.isArray(pred))
-            return this.registerPredicates(pred, module);
+		if (Array.isArray(pred))
+			return this.registerPredicates(pred, module);
 		if (!(pred instanceof Predicate))
 			throw new Error("trealla: predicate is not type Predicate");
 
