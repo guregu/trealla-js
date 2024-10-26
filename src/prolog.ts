@@ -164,11 +164,10 @@ export class Prolog {
 	scratch = 0;
 	finalizers;
 	yielding: Record<Ptr<subquery_t>, Thunk> = {};		// *subq → maybe promise
-	procs: Record<string, Predicate<any>> = {};				// pi → predicate
-	tasks = new Map<number, Task>();									// id → task
-	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 				// *subq → ctrl
+	procs: Record<string, Predicate<any>> = {};			// pi → predicate
+	tasks = new Map<number, Task>();					// id → task
+	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 			// *subq → ctrl
 	spawning = new Map<Ptr<Ptr<subquery_t>>, Ctrl>();	// **subq → ctrl
-
 
 	/**	Create a new Prolog interpreter instance. */
 	constructor(options: Partial<PrologOptions> = {}) {
@@ -647,8 +646,7 @@ function newWASI(os: OS, library?: string, env?: Record<string, string>, quiet?:
 		/* 0: */ new OpenFile(new File([])), // stdin
 		/* 1: */ os.stdout.fd,
 		/* 2: */ os.stderr.fd,
-		// /* 3: */ os.tmp,
-		/* 4: */ os.root,
+		/* 3: */ os.root,
 	];
 
 	const wasi = new WASI(args, environ, fds, {debug: false});
