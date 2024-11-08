@@ -45,7 +45,7 @@ test("example", async (t) => {
 	});
 
 	assert.deepEqual(
-		await pl.queryOnce("assertz(lang(prolog)), greeting:assertz(hello('Welt'))."),
+		await pl.queryOnce("user:assertz(lang(prolog)), greeting:assertz(hello('Welt'))."),
 		{
 			status: "success",
 			answer: {},
