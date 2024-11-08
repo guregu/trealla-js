@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import {Atom, Prolog, atom, load} from "./trealla.js";
+import {Atom, Prolog, atom, load} from "./dist/trealla.js";
 
 await test("load", async (t) => {
 	await load();

@@ -1,13 +1,13 @@
 {
   "name": "trealla",
-  "version": "0.20.19",
+  "version": "0.20.20",
   "description": "Trealla Prolog bindings for JS",
-  "main": "trealla.js",
+  "main": "dist/trealla.js",
   "type": "module",
-  "types": "index.d.ts",
+  "types": "dist/index.d.ts",
   "files": [
     "ATTRIBUTION",
-    "index.d.ts"
+    "dist/index.d.ts"
   ],
   "repository": {
     "type": "git",
@@ -15,10 +15,10 @@
   },
   "scripts": {
     "all": "npm run clean && npm run compile && npm run build",
-    "clean": "rm -f libtpl.wasm trealla.js trealla.js.map index.d.ts index.d.ts.map",
+    "clean": "rm -f libtpl.wasm trealla.js trealla.js.map index.d.ts index.d.ts.map dist/*",
     "update": "git submodule update --init --recursive && cd trealla && git fetch && git pull origin main",
     "compile": "cd trealla && make clean && make -j8 libtpl-js && mv libtpl-js.wasm ../libtpl.wasm",
-    "build": "node make.cjs",
+    "build": "node make.cjs && npx tsc",
     "watch": "nodemon --exec 'npm run build && cp trealla.{js,js.map} example/browser/' --ignore 'example' --watch 'src' --watch 'libtpl.wasm' --ext ts,wasm",
     "test": "npm run build && node test.js"
   },
@@ -39,9 +39,8 @@
     "browser_wasi_shim_gaiden": "^0.3.1"
   },
   "devDependencies": {
-    "@types/node": "^18.18.7",
-    "esbuild": "^0.15.18",
-    "esbuild-plugin-d.ts": "^1.1.0",
-    "typescript": "^5.5.4"
+    "@types/node": "^22.9.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.3"
   }
 }
