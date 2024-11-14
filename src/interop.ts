@@ -47,7 +47,7 @@ export class Predicate<G extends Goal> {
 			args.push(new Variable(`_${i}`));
 		}
 		const head = Atomic(this.name, args);
-		return `${head.toProlog()} :- host_rpc(${head.toProlog()}). `;
+		return `${head.toProlog()} :- wasm_generic:host_rpc(${head.toProlog()}). `;
 	}
 
 	get pi() {

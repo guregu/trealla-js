@@ -636,7 +636,7 @@ type HostCallReply = typeof WASM_HOST_CALL_ERROR | typeof WASM_HOST_CALL_OK |
 	typeof WASM_HOST_CALL_YIELD | typeof WASM_HOST_CALL_CHOICE | typeof WASM_HOST_CALL_FAIL;
 
 function newWASI(os: OS, library?: string, env?: Record<string, string>, quiet?: boolean) {
-	const args = ["tpl", "--ns", "-g", "use_module(user), halt"];
+	const args = ["tpl", "--ns"];
 	if (library) args.push("--library", library);
 	if (quiet) args.push("-q");
 

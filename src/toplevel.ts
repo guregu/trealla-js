@@ -16,7 +16,7 @@ export const FORMATS = {
 	json: {
 		query: function(_: Prolog, query: string, bind: Substitution) {
 			if (bind) query = bindVars(query, bind);
-			return `js_ask(${escapeString(query)}).`;
+			return `wasm:js_ask(${escapeString(query)}).`;
 		},
 		parse: function(_pl: Prolog, _status: boolean, stdout: Uint8Array, stderr: Uint8Array, opts: JSONEncodingOptions) {
 			let start = stdout.indexOf(2);					// ASCII START OF TEXT
