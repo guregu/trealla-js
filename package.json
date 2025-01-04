@@ -19,7 +19,7 @@
     "update": "git submodule update --init --recursive && cd trealla && git fetch && git pull origin main",
     "compile": "cd trealla && make clean && make -j8 libtpl-js && mv libtpl-js.wasm ../libtpl.wasm",
     "build": "node make.cjs && npx tsc",
-    "watch": "nodemon --exec 'npm run build && cp trealla.{js,js.map} example/browser/' --ignore 'example' --watch 'src' --watch 'libtpl.wasm' --ext ts,wasm",
+    "watch": "nodemon --exec 'npm run build && cp dist/trealla.js example/browser/' --ignore 'example' --watch 'src' --watch 'libtpl.wasm' --ext ts,wasm",
     "test": "npm run build && node test.js"
   },
   "keywords": [
