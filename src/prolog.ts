@@ -284,7 +284,7 @@ export class Prolog {
 					this.subq = readSubqPtr();
 				return this.subq;
 			},
-			alive: false,
+			alive: true,
 			stdout: function(str: string) {
 				if (!str) return;
 				os.stdout.fd.write(new TextEncoder().encode(str));

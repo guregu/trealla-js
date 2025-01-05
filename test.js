@@ -228,6 +228,26 @@ test("js_eval_json/2", async(t) => {
 	})
 });
 
+test("memory usage", async(t) => {
+	const pl = new Prolog();
+
+	const work = async () => {
+		const ans = await pl.queryOnce("X=1.");
+		assert.equal(ans.answer.X, 1);
+		const size = pl.instance.exports.memory.buffer.byteLength;
+		return size;
+	}
+	const base = await work();
+
+	for (let i = 0; i < 1000; i++) {
+		const size = await work();
+		if (size > base) {
+			console.log("too big", size, "vs", base);
+		}
+		assert.ok(size <= base);
+	}
+})
+
 // @ts-ignore
 async function expect(query, want) {
 	const got = [];
