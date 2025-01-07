@@ -7,6 +7,7 @@ import { FORMATS, Toplevel } from './toplevel';
 import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term, isTerm } from './term';
 import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, Continuation } from './interop';
 import { FS, newOS, OS } from './fs';
+import { ByteBuffer } from './buffer';
 
 import tpl_wasm from '../libtpl.wasm';
 let tpl: WebAssembly.Module;
@@ -246,14 +247,14 @@ export class Prolog {
 
 		// let stdoutbufs: Uint8Array[] = [];
 		// let stderrbufs: Uint8Array[] = [];
+		const stdoutbuf = new ByteBuffer();
+		const stderrbuf = new ByteBuffer();
 
 		const readOutput = () => {
-			// const stdout = this.wasi.getStdoutBuffer();
-			// const stderr = this.wasi.getStderrBuffer();
-			// if (stdout.length > 0)
-			// 	stdoutbufs.push(stdout);
-			// if (stderr.length > 0)
-			// 	stderrbufs.push(stderr);
+			stdoutbuf.copyFrom(this.os.stdout.buf);
+			this.os.stdout.reset();
+			stderrbuf.copyFrom(this.os.stderr.buf);
+			this.os.stderr.reset();
 		}
 
 		// standard WASI exports (from wasi.c)
@@ -357,10 +358,10 @@ export class Prolog {
 				}
 				// otherwise, pass to toplevel
 				const status = get_status(this.ptr) === TRUE;
-				const stdout = os.stdout.join();
-				const stderr = os.stderr.join();
-				os.stdout.reset();
-				os.stderr.reset();
+				const stdout = stdoutbuf.data;
+				const stderr = stderrbuf.data;
+				stdoutbuf.reset();
+				stderrbuf.reset();
 				if (stdout.byteLength === 0) {
 					const truth = toplevel.truth(this, status, stderr, encode);
 					if (truth === null) return;

@@ -4,6 +4,7 @@ import {
 	WASI, wasi,
 } from 'browser_wasi_shim_gaiden';
 import { wasiError } from './c';
+import { ByteBuffer } from './buffer';
 
 /** Virtual filesystem roughly compatible with wasmer-js. */
 export class FS {
@@ -264,39 +265,16 @@ export function newOS(): OS {
 }
 
 class OutputStream {
-	bufs: Uint8Array[] = [];
+	buf = new ByteBuffer(256);
 	fd: ConsoleStdout;
 	constructor() {
 		this.fd = new ConsoleStdout((buf) => {
 			if (buf.length > 0)
-				this.bufs.push(buf);
+				this.buf.write(buf)
 		});
-	}
-	join(): Uint8Array {
-		return joinBuffers(this.bufs);
 	}
 	reset(): void {
 		// TODO: re-use buffers?
-		this.bufs = [];
+		this.buf.reset();
 	}
-}
-
-function joinBuffers(bufs: Uint8Array[]) {
-	if (bufs.length === 0) {
-		return new Uint8Array(0);
-	}
-	if (bufs.length === 1) {
-		return bufs[0];
-	}
-	let size = 0;
-	for (const buf of bufs) {
-		size += buf.length;
-	}
-	const ret = new Uint8Array(size);
-	let i = 0;
-	for (const buf of bufs) {
-		ret.set(buf, i);
-		i += buf.length;
-	}
-	return ret;
 }
