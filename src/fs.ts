@@ -270,7 +270,7 @@ class OutputStream {
 	constructor() {
 		this.fd = new ConsoleStdout((buf) => {
 			if (buf.length > 0)
-				this.buf.write(buf)
+				this.buf.write(buf);
 		});
 	}
 	reset(): void {

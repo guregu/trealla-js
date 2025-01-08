@@ -4,7 +4,6 @@ export class ByteBuffer {
 	len: number = 0;
 	constructor(cap = 1024) {
 		this.buf = new Uint8Array(cap);
-		this.len = 0;
 	}
 	get cap() {
 		return this.buf.byteLength;
@@ -19,7 +18,6 @@ export class ByteBuffer {
 		this.grow(this.len + data.byteLength);
 		this.buf.set(data, this.len);
 		this.len += data.byteLength;
-		return;
 	}
 	copyFrom(other: ByteBuffer) {
 		this.write(other.data);
