@@ -210,7 +210,6 @@ test("js_eval_json/2", async(t) => {
 				{status: "success", answer: {N: 1, Got: "1", JS: "return 1;"}},
 				{status: "success", answer: {N: 2, Got: "2", JS: "return 2;"}},
 				{status: "success", answer: {N: 3, Got: "3", JS: "return 3;"}},
-				{status: "failure"},
 			]
 		);
 	});
@@ -222,7 +221,6 @@ test("js_eval_json/2", async(t) => {
 				{status: "success", answer: {N: 1, Got: "1", JS: "return new Promise((resolve) => resolve(1))"}},
 				{status: "success", answer: {N: 2, Got: "2", JS: "return new Promise((resolve) => resolve(2))"}},
 				{status: "success", answer: {N: 3, Got: "3", JS: "return new Promise((resolve) => resolve(3))"}},
-				{status: "failure"},
 			]
 		);
 	})
@@ -232,8 +230,9 @@ test("memory usage", async(t) => {
 	const pl = new Prolog();
 
 	const work = async () => {
-		const ans = await pl.queryOnce("X=1.");
-		assert.equal(ans.answer.X, 1);
+		for await (const ans of pl.query("write(stdout, abc), write(stderr, def), X=1 ; write(stdout, zzzzz), write(stderr, qqqqq), X=1 ; fail.")) {
+			assert.equal(ans.answer.X, 1);
+		}
 		const size = pl.instance.exports.memory.buffer.byteLength;
 		return size;
 	}
