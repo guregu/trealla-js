@@ -230,7 +230,7 @@ test("memory usage", async(t) => {
 	const pl = new Prolog();
 
 	const work = async () => {
-		for await (const ans of pl.query("write(stdout, abc), write(stderr, def), X=1 ; write(stdout, zzzzz), write(stderr, qqqqq), X=1 ; fail.")) {
+		for await (const ans of pl.query("write(stdout, abc), write(stderr, def), X=1 ; write(stdout, zzzzz), write(stderr, qqqqq), X = 1.")) {
 			assert.equal(ans.answer.X, 1);
 		}
 		const size = pl.instance.exports.memory.buffer.byteLength;
@@ -241,7 +241,7 @@ test("memory usage", async(t) => {
 	for (let i = 0; i < 1000; i++) {
 		const size = await work();
 		if (size > base) {
-			console.log("too big", size, "vs", base);
+			console.log("too big", size, "vs", base, "iter=", i, "growth=", ((size-base)/i).toFixed(2) + "B/t");
 		}
 		assert.ok(size <= base);
 	}

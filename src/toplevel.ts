@@ -5,7 +5,7 @@ export interface Toplevel<T, Options> {
 	/** Prepare query string, returns goal to execute. */
 	query(pl: Prolog, goal: string, bind?: Substitution, options?: Options): string;
 	/** Parse stdout and return an answer. */
-	parse(pl: Prolog, status: boolean, stdout: Uint8Array, stderr: Uint8Array, options?: Options): T;
+	parse(pl: Prolog, status: boolean, stdout: Uint8Array, stderr: Uint8Array, options?: Options, answer?: string): T;
 	/** Yield simple truth value, when output is blank.
 		For queries such as `true.` and `1=2.`.
 		Return null to bail early and yield no values. */
@@ -14,6 +14,42 @@ export interface Toplevel<T, Options> {
 
 export const FORMATS = {
 	json: {
+		query: function (_: Prolog, query: string, bind: Substitution) {
+			if (bind) query = bindVars(query, bind);
+			return `wasm:js_ask(${escapeString(query)}).`;
+		},
+		parse: function (_pl: Prolog, _status: boolean, stdout: Uint8Array, stderr: Uint8Array, opts: JSONEncodingOptions, answer: string) {
+			const dec = new TextDecoder();
+			const json = answer;
+			let msg;
+			try {
+				msg = JSON.parse(json, reviver(opts));
+			} catch (ex) {
+				console.error("Bad stdout:\n" + json);
+				if (stderr?.length > 0) {
+					console.warn("stderr:\n" + new TextDecoder().decode(stderr));
+				}
+				throw ex;
+			}
+
+			if (stdout?.byteLength > 0) {
+				msg.stdout = dec.decode(stdout);
+			}
+			if (stderr?.byteLength > 0) {
+				msg.stderr = dec.decode(stderr);
+			}
+
+			if (typeof msg?.answer?.__GOAL === "object") {
+				msg.goal = msg.answer.__GOAL;
+				delete msg.answer.__GOAL;
+			}
+
+			return msg;
+		},
+		truth: function () { return null; }
+	},
+	/*
+	json_old: {
 		query: function(_: Prolog, query: string, bind: Substitution) {
 			if (bind) query = bindVars(query, bind);
 			return `wasm:js_ask(${escapeString(query)}).`;
@@ -62,6 +98,7 @@ export const FORMATS = {
 		},
 		truth: function() { return null; }
 	},
+	*/
 	prolog: {
 		query: function(_: Prolog, query: string, bind: Substitution) {
 			if (bind) query = bindVars(query, bind);
