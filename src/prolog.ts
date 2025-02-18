@@ -116,6 +116,7 @@ export type Ctrl = {
 	alive: boolean,
 	stdout: (str: string) => void,
 	stderr: (str: string) => void,
+	answers: string[],
 }
 
 interface Instance extends StandardInstance {
@@ -203,6 +204,7 @@ export class Prolog {
 			"trealla": {
 				"host-call": this._host_call.bind(this),
 				"host-resume": this._host_resume.bind(this),
+				"host-push-answer": this._host_push_answer.bind(this),
 			}
 		}
 		this.instance = await WebAssembly.instantiate(tpl, imports) as Instance;
@@ -293,7 +295,8 @@ export class Prolog {
 			stderr: function(str: string) {
 				if (!str) return;
 				os.stderr.fd.write(new TextEncoder().encode(str));
-			}
+			},
+			answers: [],
 		};
 		this.spawning.set(subqptr, ctrl);
 
@@ -362,12 +365,15 @@ export class Prolog {
 				const stderr = stderrbuf.data;
 				stdoutbuf.reset();
 				stderrbuf.reset();
-				if (stdout.byteLength === 0) {
+				const queued = ctrl.answers.shift();
+				const empty = format === "json" ? !queued : stdout.byteLength === 0;
+				if (empty) {
 					const truth = toplevel.truth(this, status, stderr, encode);
 					if (truth === null) return;
 					yield truth;
 				} else {
-					const solution = toplevel.parse(this, status, stdout, stderr, encode);
+					// console.log(status, stdout, stderr, encode, queued);
+					const solution = toplevel.parse(this, status, stdout, stderr, encode, queued);
 					if (solution === null) return;
 					yield solution;
 				}
@@ -623,6 +629,12 @@ export class Prolog {
 			return WASM_HOST_CALL_FAIL;
 
 		return WASM_HOST_CALL_OK;
+	}
+
+	_host_push_answer(subquery: Ptr<subquery_t>, ptr: Ptr<char_t>, msgsize: size_t): void {
+		const raw = readString(this.instance, ptr, msgsize);
+		const ctrl = this.ctrl(subquery);
+		ctrl.answers.push(raw);
 	}
 }
 
