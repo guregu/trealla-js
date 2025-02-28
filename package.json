@@ -1,46 +1,46 @@
 {
-  "name": "trealla",
-  "version": "0.22.2",
-  "description": "Trealla Prolog bindings for JS",
-  "main": "dist/trealla.js",
-  "type": "module",
-  "types": "dist/index.d.ts",
-  "files": [
-    "ATTRIBUTION",
-    "dist/index.d.ts"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/guregu/trealla-js.git"
-  },
-  "scripts": {
-    "all": "npm run clean && npm run compile && npm run build",
-    "clean": "rm -f libtpl.wasm trealla.js trealla.js.map index.d.ts index.d.ts.map dist/*",
-    "update": "git submodule update --init --recursive && cd trealla && git fetch && git pull origin main",
-    "compile": "cd trealla && make clean && make -j8 libtpl-js && mv libtpl-js.wasm ../libtpl.wasm",
-    "build": "node make.cjs && npx tsc",
-    "watch": "nodemon --exec 'npm run build && cp dist/trealla.js example/browser/' --ignore 'example' --watch 'src' --watch 'libtpl.wasm' --ext ts,wasm",
-    "test": "npm run build && node test.js"
-  },
-  "keywords": [
-    "prolog",
-    "logic",
-    "logic-programming",
-    "interpreter",
-    "trealla-prolog"
-  ],
-  "author": "guregu",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/guregu/trealla-js/issues"
-  },
-  "homepage": "https://github.com/guregu/trealla-js#readme",
-  "dependencies": {
-    "browser_wasi_shim_gaiden": "^0.3.6"
-  },
-  "devDependencies": {
-    "@types/node": "^22.9.0",
-    "esbuild": "^0.25.0",
-    "typescript": "^5.6.3"
-  }
+	"name": "trealla",
+	"version": "0.22.3",
+	"description": "Trealla Prolog bindings for JS",
+	"main": "dist/trealla.js",
+	"type": "module",
+	"types": "dist/index.d.ts",
+	"files": [
+		"ATTRIBUTION",
+		"dist/index.d.ts"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/guregu/trealla-js.git"
+	},
+	"scripts": {
+		"all": "npm run clean && npm run compile && npm run build",
+		"clean": "rm -f libtpl.wasm trealla.js trealla.js.map index.d.ts index.d.ts.map dist/*",
+		"update": "git submodule update --init --recursive && cd trealla && git fetch && git pull origin main",
+		"compile": "cd trealla && make clean && make -j8 libtpl-js && mv libtpl-js.wasm ../libtpl.wasm",
+		"build": "node make.cjs && npx tsc",
+		"watch": "nodemon --exec 'npm run build && cp dist/trealla.js example/browser/' --ignore 'example' --watch 'src' --watch 'libtpl.wasm' --ext ts,wasm",
+		"test": "npm run build && node test.js"
+	},
+	"keywords": [
+		"prolog",
+		"logic",
+		"logic-programming",
+		"interpreter",
+		"trealla-prolog"
+	],
+	"author": "guregu",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/guregu/trealla-js/issues"
+	},
+	"homepage": "https://github.com/guregu/trealla-js#readme",
+	"dependencies": {
+		"browser_wasi_shim_gaiden": "^0.3.6"
+	},
+	"devDependencies": {
+		"@types/node": "^22.9.0",
+		"esbuild": "^0.25.0",
+		"typescript": "^5.6.3"
+	}
 }
