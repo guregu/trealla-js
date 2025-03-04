@@ -174,7 +174,7 @@ export const sys_await_1 = new Predicate<Compound<"$await", [PromiseTerm]>>(
 			throw type_error("promise", token, goal.pi);
 		}
 		const id = token.args[0];
-		if (!isNumber(id)) {
+		if (typeof id !== "number") {
 			throw type_error("integer", token, goal.pi);
 		}
 		const task: Task | undefined = pl.tasks.get(id);

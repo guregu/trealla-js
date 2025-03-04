@@ -247,11 +247,8 @@ export class Prolog {
 		const _id = ++this.n;
 		const token = {};
 
-		// let stdoutbufs: Uint8Array[] = [];
-		// let stderrbufs: Uint8Array[] = [];
 		const stdoutbuf = new ByteBuffer();
 		const stderrbuf = new ByteBuffer();
-
 		const readOutput = () => {
 			stdoutbuf.copyFrom(this.os.stdout.buf);
 			this.os.stdout.reset();

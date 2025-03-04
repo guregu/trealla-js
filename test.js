@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import {Atom, Prolog, atom, load} from "./dist/trealla.js";
+import { Atom, Prolog, Variable, Compound, toProlog, prolog, atom,
+	isAtom, isCompound, isNumber, isList, isVariable, isString, isTerm, load } from "./dist/trealla.js";
 
 await test("load", async (t) => {
 	await load();
@@ -173,6 +174,93 @@ test("library(clpz)", async (t) => {
 			}
 		}
 	);
+});
+
+test("terms", async (t) => {
+	const cases = [
+		{
+			term: 1,
+			text: "1",
+			check: isNumber,
+		},
+		{
+			term: 9007199254740992n,
+			text: "9007199254740992",
+			check: isNumber,
+		},
+		/*
+		{
+			term: new Rational(1, 3),
+			text: "1 rdiv 3",
+			check: isRational,
+		},
+		*/
+		{
+			term: new Atom("y'all"),
+			text: "'y\\'all'",
+			check: isAtom,
+		},
+		{
+			term: new Atom("OK"),
+			text: "'OK'",
+			check: isAtom,
+		},
+		{
+			term: new Compound("hello", [new Atom("world")]),
+			text: "'hello'('world')",
+			check: isCompound,
+		},
+		{
+			term: "hi",
+			text: `"hi"`,
+			check: isString,
+		},
+		{
+			term: [123, new Atom("abc")],
+			text: `[123,'abc']`,
+			check: isList,
+		},
+		{
+			term: new Variable("X"),
+			text: "X",
+			check: isVariable,
+		},
+	];
+	await t.test(`term to prolog text`, async (t) => {
+		for (const item of cases) {
+			await t.test(`toProlog(${item.term})`, (t) => {
+				assert.deepEqual(toProlog(item.term), item.text);
+			});
+			await t.test("prolog`X = ${" + item.term.toString() + "}`", (t) => {
+				const tmpl = prolog`${new Variable("X")} = ${item.term}`;
+				assert.deepEqual(tmpl, `X = ${item.text}`);
+			});
+		}
+	});
+	await t.test(`term type checkers`, async (t) => {
+		for (const item of cases) {
+			await t.test(`${item.check.name}(${item.term})`, (t) => {
+				assert.ok(item.check(item.term));
+			});
+			await t.test(`isTerm(${item.term})`, (t) => {
+				assert.ok(isTerm(item.term));
+			});
+		}
+	});
+	// make sure we get the same term type back that we bind with QueryOptions
+	await t.test(`binding roundtrip`, async (t) => {
+		const pl = new Prolog();
+		for (const item of cases) {
+			await test(`X = ${toProlog(item.term)}`, async (t) => {
+				if (isVariable(item.term)) {
+					t.skip("equivalent variables don't get individual bindings (yet?)");
+					return;
+				}
+				const ans = await pl.queryOnce("X = Y.", { bind: { Y: item.term } });
+				assert.deepEqual(ans.answer.X, item.term);
+			});
+		}
+	});
 });
 
 test("atom template", async (t) => {

@@ -1,12 +1,14 @@
 import { JSONEncodingOptions } from "./prolog";
 
-export type Term = Atom | Compound<Functor, Args> | Variable | List | string | number | BigInt;
+export type Term = Atom | Compound<Functor, Args> | Variable | List | string | number | bigint;
 export type List = Term[];
 export type Functor = string;
 
 export type Args = [Term, ...Term[]];
 export type Goal = Atom | Compound<Functor, Args>;
 export type PredicateIndicator = Compound<"/", [Atom, number]>;
+
+export type Termlike = | Term	| Literal	| Uint8Array | { toProlog: () => string };
 
 /** Prolog atom term. */
 export class Atom {
@@ -37,6 +39,16 @@ export function atom(text: TemplateStringsArray, ...values: any[]) {
 		}
 	}
 	return new Atom(functor);
+}
+
+/** Template literal function for escaping Prolog text. `${values}` will be interpreted as Prolog terms. */
+export function prolog(text: TemplateStringsArray, ...values: Termlike[]) {
+	let str = "";
+	for (let i = 0; i < text.length; i++) {
+		str += text[i];
+		if (values[i]) str += toProlog(values[i]);
+	}
+	return str;
 }
 
 export function Atomic(functor: string, args: Term[]): typeof args extends Args ? Compound<typeof functor, typeof args> : Atom;
@@ -84,11 +96,11 @@ export function isCompound<F extends string>(x: unknown, name?: F, arity?: numbe
 }
 
 export function isList(x: unknown): x is List {
-	return Array.isArray(x);
+	return Array.isArray(x) && x.every(isTerm);
 }
 
-export function isNumber(x: Term): x is number {
-	return typeof x === "number";
+export function isNumber(x: Term): x is number | bigint {
+	return typeof x === "number" || typeof x === "bigint";
 }
 
 export function isString(x: Term): x is string {
