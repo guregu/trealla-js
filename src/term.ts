@@ -10,11 +10,16 @@ export type PredicateIndicator = Compound<"/", [Atom, number]>;
 
 /** Prolog atom term. */
 export class Atom {
+	/** Value of the atom. */
 	functor: string;
 	args: [] = [];
 	constructor(functor: string) {
 		this.functor = functor;
 	}
+	/** Value of the atom. */
+	// TODO: change `functor` to just `value`, here is for backwards compatibility
+	get value() { return this.functor; }
+	set value(v: string) { this.functor = v; }
 	get pi() { return piTerm(this.functor, 0) }
 	toProlog() {
 		return escapeAtom(this.functor);
@@ -34,10 +39,12 @@ export function atom(text: TemplateStringsArray, ...values: any[]) {
 	return new Atom(functor);
 }
 
+export function Atomic(functor: string, args: Term[]): typeof args extends Args ? Compound<typeof functor, typeof args> : Atom;
+export function Atomic(functor: string, args: []): Atom;
 export function Atomic(functor: string, args: Term[]) {
-	if (args.length === 0)
+	if (!args || args.length === 0)
 		return new Atom(functor);
-	return new Compound(functor, args as [Term, ...Term[]]);
+	return new Compound(functor, args as Args);
 }
 
 /** Prolog compound term. */
