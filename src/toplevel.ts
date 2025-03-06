@@ -1,9 +1,9 @@
-import { Prolog, JSONEncodingOptions, PrologEncodingOptions, Substitution } from './prolog';
-import { toProlog, escapeString, reviver } from './term';
+import { Prolog, JSONEncodingOptions, PrologEncodingOptions } from './prolog';
+import { toProlog, escapeString, reviver, Termlike, isRational } from './term';
 
 export interface Toplevel<T, Options> {
 	/** Prepare query string, returns goal to execute. */
-	query(pl: Prolog, goal: string, bind?: Substitution, options?: Options): string;
+	query(pl: Prolog, goal: string, bind?: Record<string, Termlike>, options?: Options): string;
 	/** Parse stdout and return an answer. */
 	parse(pl: Prolog, status: boolean, stdout: Uint8Array, stderr: Uint8Array, options?: Options, answer?: string): T;
 	/** Yield simple truth value, when output is blank.
@@ -14,7 +14,7 @@ export interface Toplevel<T, Options> {
 
 export const FORMATS = {
 	json: {
-		query: function (_: Prolog, query: string, bind: Substitution) {
+		query: function (_: Prolog, query: string, bind: Record<string, Termlike>) {
 			if (bind) query = bindVars(query, bind);
 			return `wasm:js_ask(${escapeString(query)}).`;
 		},
@@ -50,7 +50,7 @@ export const FORMATS = {
 	},
 	/*
 	json_old: {
-		query: function(_: Prolog, query: string, bind: Substitution) {
+		query: function(_: Prolog, query: string, bind: Record<string, Termlike>) {
 			if (bind) query = bindVars(query, bind);
 			return `wasm:js_ask(${escapeString(query)}).`;
 		},
@@ -100,7 +100,7 @@ export const FORMATS = {
 	},
 	*/
 	prolog: {
-		query: function(_: Prolog, query: string, bind: Substitution) {
+		query: function(_: Prolog, query: string, bind: Record<string, Termlike>) {
 			if (bind) query = bindVars(query, bind);
 			return query;
 		},
@@ -123,8 +123,8 @@ export const FORMATS = {
 	}
 };
 
-function bindVars(query: string, bind: Substitution) {
-	const vars = Object.entries(bind).map(([k, v]) => `${k} = ${toProlog(v)}`).join(", ");
+function bindVars(query: string, bind: Record<string, Termlike>) {
+	const vars = Object.entries(bind).map(([k, v]) => `${k} ${isRational(v) ? "is" : "="} ${toProlog(v)}`).join(", ");
 	if (vars.length === 0) return query;
 	return `${vars}, ${query}`;
 }

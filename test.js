@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import { Atom, Prolog, Variable, Compound, toProlog, prolog, atom,
-	isAtom, isCompound, isNumber, isList, isVariable, isString, isTerm, load } from "./dist/trealla.js";
+import { Atom, Prolog, Variable, Compound, Rational, toProlog, prolog, atom,
+	isAtom, isCompound, isNumber, isRational, isList, isVariable, isString, isTerm, load } from "./dist/trealla.js";
 
 await test("load", async (t) => {
 	await load();
@@ -188,13 +188,16 @@ test("terms", async (t) => {
 			text: "9007199254740992",
 			check: isNumber,
 		},
-		/*
 		{
 			term: new Rational(1, 3),
 			text: "1 rdiv 3",
 			check: isRational,
 		},
-		*/
+		{
+			term: new Rational(1, 9007199254740992n),
+			text: "1 rdiv 9007199254740992",
+			check: isRational,
+		},
 		{
 			term: new Atom("y'all"),
 			text: "'y\\'all'",
@@ -258,6 +261,7 @@ test("terms", async (t) => {
 				}
 				const ans = await pl.queryOnce("X = Y.", { bind: { Y: item.term } });
 				assert.deepEqual(ans.answer.X, item.term);
+				assert.ok(item.check(ans.answer.X));
 			});
 		}
 	});

@@ -1,6 +1,7 @@
 import { JSONEncodingOptions } from "./prolog";
 
-export type Term = Atom | Compound<Functor, Args> | Variable | List | string | number | bigint;
+export type Term = Atom | Compound<Functor, Args> | Variable | List | string | Numeric | Rational;
+export type Numeric = number | bigint;
 export type List = Term[];
 export type Functor = string;
 
@@ -8,7 +9,8 @@ export type Args = [Term, ...Term[]];
 export type Goal = Atom | Compound<Functor, Args>;
 export type PredicateIndicator = Compound<"/", [Atom, number]>;
 
-export type Termlike = | Term	| Literal	| Uint8Array | { toProlog: () => string };
+/** Terms or objects that encode into terms. Uint8Array becomes a Prolog string. */
+export type Termlike = | Term | Literal | Uint8Array | { toProlog: () => string };
 
 /** Prolog atom term. */
 export class Atom {
@@ -82,6 +84,21 @@ export class Compound<Functor extends string, Arguments extends Args> {
 	toString() { return this.toProlog(); }
 }
 
+/** Prolog rational term. */
+export class Rational {
+	numerator: Numeric;
+	denominator: Numeric;
+	constructor(numerator: Numeric, denominator: Numeric) {
+		this.numerator = numerator;
+		this.denominator = denominator;
+	}
+	toProlog() {
+		return `${this.numerator} rdiv ${this.denominator}`;
+	}
+	toString() {
+		return `${this.numerator}/${this.denominator}`;
+	}
+}
 
 export function isAtom(x: unknown, name?: string): x is Atom {
 	return x instanceof Atom &&
@@ -99,15 +116,19 @@ export function isList(x: unknown): x is List {
 	return Array.isArray(x) && x.every(isTerm);
 }
 
-export function isNumber(x: Term): x is number | bigint {
+export function isNumber(x: unknown): x is Numeric {
 	return typeof x === "number" || typeof x === "bigint";
 }
 
-export function isString(x: Term): x is string {
+export function isRational(x: unknown): x is Rational {
+	return x instanceof Rational;
+}
+
+export function isString(x: unknown): x is string {
 	return typeof x === "string";
 }
 
-export function isCallable(term: Term): term is Goal {
+export function isCallable(term: unknown): term is Goal {
 	return isAtom(term) || isCompound(term);
 }
 
@@ -122,7 +143,7 @@ export function isTerm(term: unknown): term is Term {
 	case "string":
 		return true;
 	}
-	return isAtom(term) || isCompound(term) || isList(term) || isVariable(term);
+	return isAtom(term) || isCompound(term) || isList(term) || isVariable(term) || isRational(term);
 }
 
 /** Prolog variable term. */
@@ -279,6 +300,12 @@ export function reviver(opts: JSONEncodingOptions = {}) {
 		}
 		if (typeof v === "object" && ("var" in v) && typeof v.var === "string") {
 			return new Variable(v.var, (v as Variable).attr);
+		}
+		if (typeof v === "object" && ("numerator" in v) && ("denominator" in v)) {
+			if (!isNumber(v.numerator) || !isNumber(v.denominator)) {
+				throw new Error(`invalid rational: ${JSON.stringify(v)}`);
+			}
+			return new Rational(v.numerator, v.denominator);
 		}
 		if (typeof v === "object" && ("number" in v) && typeof v.number === "string") {
 			return BigInt(v.number);

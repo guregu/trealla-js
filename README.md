@@ -354,10 +354,11 @@ declare module 'trealla' {
     atom(X)     → Atom
     compound(X) → Compound
     integer(X)  → BigInt if necessary
+    rational(X) → Rational
     number(X)   → number
     var(X)      → Variable
   */
-  type Term = Atom | Compound | Variable | List | string | number | BigInt;
+  type Term = Atom | Compound | Variable | List | string | number | bigint | Rational;
 
   type List = Term[];
 
@@ -387,6 +388,15 @@ declare module 'trealla' {
     var: string;
     /** Residual goals. */
     attr?: List;
+    toProlog(): string;
+  }
+
+  type Numeric = number | bigint;
+
+  class Rational {
+    constructor(numerator: Numeric, denominator: Numeric);
+    numerator: Numeric;
+    denominator: Numeric;
     toProlog(): string;
   }
 

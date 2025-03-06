@@ -4,7 +4,7 @@ import { CString, indirect, readString, writeUint32,
 	PTRSIZE, ALIGN, NULL, FALSE, TRUE, Ptr, int_t, char_t, bool_t, size_t,
 	WASI as StandardInstance, ABI } from './c';
 import { FORMATS, Toplevel } from './toplevel';
-import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term, isTerm } from './term';
+import { Atom, Compound, fromJSON, toProlog, piTerm, Goal, Term, isTerm, Termlike } from './term';
 import { Predicate, LIBRARY, system_error, sys_missing_n, throwTerm, Continuation } from './interop';
 import { FS, newOS, OS } from './fs';
 import { ByteBuffer } from './buffer';
@@ -36,7 +36,7 @@ export interface PrologOptions {
 
 export interface QueryOptions {
 	/** Mapping of variables to bind in the query. */
-	bind?: Substitution;
+	bind?: Record<string, Termlike>;
 	/** Prolog program text to evaluate before the query. */
 	program?: string | Uint8Array;
 	/** Answer format. This changes the return type of the query generator.
