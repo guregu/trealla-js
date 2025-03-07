@@ -255,10 +255,6 @@ test("terms", async (t) => {
 		const pl = new Prolog();
 		for (const item of cases) {
 			await test(`X = ${toProlog(item.term)}`, async (t) => {
-				if (isVariable(item.term)) {
-					t.skip("equivalent variables don't get individual bindings (yet?)");
-					return;
-				}
 				const ans = await pl.queryOnce("X = Y.", { bind: { Y: item.term } });
 				assert.deepEqual(ans.answer.X, item.term);
 				assert.ok(item.check(ans.answer.X));

@@ -238,7 +238,7 @@ Each `${value}` will be interpreted as a Prolog term.
 
 ```typescript
 import { prolog, Variable } from "trealla";
-const result = pl.queryOnce(
+const result = await pl.queryOnce(
 	prolog`atom_chars(${new Variable("X")}, ${"Hello!"}).`,
 );
 console.log(result.answer); // { X: Atom('Hello!') }
