@@ -225,9 +225,31 @@ export function toProlog(obj: unknown): string {
 	throw new Error("trealla: can't convert object to Prolog term: " + obj);
 }
 
-// TODO: might be nice if escapeAtom could avoid the quoting when it can,
-// but it is easier to just quote everything.
+function needsEscape(atom: string) {
+	if (atom.length === 0) {
+		return true;
+	}
+	let code = atom.charCodeAt(0);
+	if (!(code >= 97 && code <= 122)) {
+		return true;
+	}
+	for (let i = 1; i < atom.length; i++) {
+		code = atom.charCodeAt(i);
+		if ((code >= 97 && code <= 122)	/* a-z */ ||
+				(code >= 65 && code <= 90)	/* A-Z */ ||
+				(code >= 48 && code <= 57)	/* 0-9 */ ||
+				code === 95) /* _ */ {
+				continue;
+		}
+		return true;
+	}
+	return false;
+}
+
 export function escapeAtom(atom: string) {
+	if (!needsEscape(atom))
+		return atom;
+
 	return `'${atom
 		.replaceAll("\\", "\\\\")
 		.replaceAll(`'`, `\\'`)

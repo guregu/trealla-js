@@ -204,13 +204,33 @@ test("terms", async (t) => {
 			check: isAtom,
 		},
 		{
+			term: new Atom("true"),
+			text: "true",
+			check: isAtom,
+		},
+		{
+			term: new Atom(""),
+			text: "''",
+			check: isAtom,
+		},
+		{
 			term: new Atom("OK"),
 			text: "'OK'",
 			check: isAtom,
 		},
 		{
+			term: new Atom("_notvar"),
+			text: "'_notvar'",
+			check: isAtom,
+		},
+		{
+			term: new Atom("hello\nworld"),
+			text: "'hello\\nworld'",
+			check: isAtom,
+		},
+		{
 			term: new Compound("hello", [new Atom("world")]),
-			text: "'hello'('world')",
+			text: "hello(world)",
 			check: isCompound,
 		},
 		{
@@ -220,7 +240,7 @@ test("terms", async (t) => {
 		},
 		{
 			term: [123, new Atom("abc")],
-			text: `[123,'abc']`,
+			text: `[123,abc]`,
 			check: isList,
 		},
 		{
