@@ -9,6 +9,12 @@
 		"ATTRIBUTION",
 		"dist/index.d.ts"
 	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/trealla.js"
+		}
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/guregu/trealla-js.git"
