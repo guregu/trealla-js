@@ -1,5 +1,6 @@
 import { Compound, Atom, Variable, toProlog, fromJSON, piTerm, Goal, Term, Atomic,
-	isCompound, isList, isCallable, isNumber, isTerm, PredicateIndicator, Functor } from './term';
+	isCompound, isList, isCallable, isNumber, isTerm, PredicateIndicator, Functor,
+    Rational} from './term';
 import { Ptr } from './c';
 import { Answer, Ctrl, Prolog, subquery_t, Task, Tick } from './prolog';
 
@@ -441,6 +442,7 @@ const EVAL_BINDINGS = {
 	Compound: Compound,
 	Variable: Variable,
 	Predicate: Predicate,
+	Rational: Rational,
 	toProlog: toProlog,
 	fromJSON: fromJSON,
 	piTerm: piTerm
