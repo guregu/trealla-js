@@ -213,20 +213,6 @@ test("module context", async (t) => {
 	})
 });
 
-test("module context", async (t) => {
-	const pl = new Prolog();
-	const answer = await pl.queryOnce("'$module'(M)");
-	assert.deepEqual(
-		answer,
-		{
-			status: "success",
-			answer: {
-				M: new Atom("user"),
-			}
-		}
-	);
-});
-
 test("terms", async (t) => {
 	const cases = [
 		{
