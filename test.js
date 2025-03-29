@@ -53,10 +53,24 @@ test("example", async (t) => {
 		}
 	);
 
+	await t.test("use_module", async (t) => {
+		await expect(
+			pl.query(
+				`use_module(greeting).`,
+			),
+			[
+				{
+					status: "success",
+					answer: {},
+				},
+			]
+		)
+	});
+
 	await t.test("vanilla toplevel", async (t) => {
 		await expect(
 			pl.query(
-				`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`,
+				`hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`,
 			),
 			[
 				{
@@ -80,7 +94,7 @@ test("example", async (t) => {
 		await t.test("atoms encoded to string option", async (t) => {
 			await expect(
 				pl.query(
-					`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`,
+					`hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`,
 					{encode: {atoms: "string"}}
 				),
 				[
@@ -107,7 +121,7 @@ test("example", async (t) => {
 	await t.test("raw prolog toplevel", async (t) => {
 		await expect(
 			pl.query(
-				`use_module(greeting), hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`,
+				`hello(Planet), lang(Lang), format("hello ~w from ~w!~n", [Planet, Lang]).`,
 				{format: "prolog"}
 			),
 			[
@@ -171,6 +185,43 @@ test("library(clpz)", async (t) => {
 			status: "success",
 			answer: {
 				X: 2
+			}
+		}
+	);
+});
+
+test("module context", async (t) => {
+	const pl = new Prolog();
+	await t.test("json toplevel", async (t) => {
+		const answer = await pl.queryOnce("'$module'(M)");
+		assert.deepEqual(
+			answer,
+			{
+				status: "success",
+				answer: {
+					M: new Atom("user"),
+				}
+			}
+		);
+	});
+	await t.test("prolog toplevel", async (t) => {
+		const answer = await pl.queryOnce("'$module'(M)", {format: "prolog"});
+		assert.deepEqual(
+			answer,
+			"M = user."
+		);
+	})
+});
+
+test("module context", async (t) => {
+	const pl = new Prolog();
+	const answer = await pl.queryOnce("'$module'(M)");
+	assert.deepEqual(
+		answer,
+		{
+			status: "success",
+			answer: {
+				M: new Atom("user"),
 			}
 		}
 	);
@@ -297,7 +348,7 @@ test("atom template", async (t) => {
 
 test("json bools/null", async (t) => {
 	const pl = new Prolog();
-	const answer = await pl.queryOnce(`json_chars({"a": true, "b": false, "c": null, "d": []}, Cs).`);
+	const answer = await pl.queryOnce(`use_module(library(pseudojson)), json_chars({"a": true, "b": false, "c": null, "d": []}, Cs).`);
 	assert.deepEqual(
 		answer,
 		{
@@ -354,6 +405,25 @@ test("memory usage", async(t) => {
 		assert.ok(size <= base);
 	}
 })
+
+test("dangling clause iterator", async (t) => {
+	// Tests query iterators that find a next result whose clause is erased before it can report its answer
+	t.skip("Known issue: https://github.com/guregu/trealla-js/issues/34#issuecomment-2759955961");
+	return;
+
+	const pl = new Prolog();
+	const q1 = pl.query("p(X).", { program: "p(1). p(2).", format: "prolog" });
+	const q2 = pl.query("p(X).", { program: "p(1).", format: "prolog" });
+	await q1.next();
+	await q2.next();
+	const funny = await q1.next();
+	// should be either done or "; false."
+	if (!funny.done)
+		assert.deepEqual(funny.value, "false.");
+
+	q1.return();
+	q2.return();
+});
 
 // @ts-ignore
 async function expect(query, want) {

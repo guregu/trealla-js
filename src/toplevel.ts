@@ -16,7 +16,7 @@ export const FORMATS = {
 	json: {
 		query: function (_: Prolog, query: string, bind: Record<string, Termlike>) {
 			if (bind) query = bindVars(query, bind);
-			return `wasm:js_ask(${escapeString(query)}).`;
+			return `'$json_ask'(${escapeString(query)}).`;
 		},
 		parse: function (_pl: Prolog, _status: boolean, stdout: Uint8Array, stderr: Uint8Array, opts: JSONEncodingOptions, answer: string) {
 			const dec = new TextDecoder();
@@ -27,7 +27,7 @@ export const FORMATS = {
 			} catch (ex) {
 				console.error("Bad stdout:\n" + json);
 				if (stderr?.length > 0) {
-					console.warn("stderr:\n" + new TextDecoder().decode(stderr));
+					console.warn("stderr:\n" + dec.decode(stderr));
 				}
 				throw ex;
 			}
@@ -39,9 +39,9 @@ export const FORMATS = {
 				msg.stderr = dec.decode(stderr);
 			}
 
-			if (typeof msg?.answer?.__GOAL === "object") {
-				msg.goal = msg.answer.__GOAL;
-				delete msg.answer.__GOAL;
+			if (typeof msg?.answer?.__GOAL__ === "object") {
+				msg.goal = msg.answer.__GOAL__;
+				delete msg.answer.__GOAL__;
 			}
 
 			return msg;
@@ -86,9 +86,9 @@ export const FORMATS = {
 				msg.stderr = dec.decode(stderr);
 			}
 
-			if (typeof msg?.answer?.__GOAL === "object") {
-				msg.goal = msg.answer.__GOAL;
-				delete msg.answer.__GOAL;
+			if (typeof msg?.answer?.__GOAL__ === "object") {
+				msg.goal = msg.answer.__GOAL__;
+				delete msg.answer.__GOAL__;
 			}
 			// if (typeof opts?.extra !== "undefined") {
 			// 	msg.extra = opts.extra;

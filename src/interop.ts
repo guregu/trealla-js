@@ -158,7 +158,7 @@ export const future_2 = new Predicate<Compound<"future", [Goal, PromiseTerm]>>(
 		if (!isCallable(call))
 			throw type_error("callable", call, goal.pi);
 
-		const goalvar = new Variable("__GOAL");
+		const goalvar = new Variable("__GOAL__");
 		const ask = new Compound(",", [new Compound("=", [goalvar, goal.args[0]]), goalvar]);
 		const task = pl.query(ask.toProlog()) as AsyncGenerator<Answer & {goal: Goal}>;
 		const id = pl.addTask(task);
