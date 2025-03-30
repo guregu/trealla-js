@@ -360,13 +360,14 @@ export class Prolog {
 				}
 				// otherwise, pass to toplevel
 				const status = get_status(this.ptr) === TRUE;
-				const errored = toplevel === FORMATS.prolog ? get_error(this.ptr) : FALSE;
+				const usingJSON = toplevel === FORMATS.json;
+				const errored = !usingJSON ? get_error(this.ptr) : FALSE;
 				const stdout = stdoutbuf.data;
 				const stderr = stderrbuf.data;
 				stdoutbuf.reset();
 				stderrbuf.reset();
 				const queued = ctrl.answers.shift();
-				const empty = toplevel === FORMATS.json ? !queued : stdout.byteLength === 0;
+				const empty = usingJSON ? !queued : stdout.byteLength === 0;
 				if (empty) {
 					const truth = toplevel.truth(this, status, stderr, encode);
 					if (truth === null) return;
@@ -377,11 +378,11 @@ export class Prolog {
 					if (solution === null) return;
 					yield solution;
 				}
-				if (ok === FALSE) {
-					return;
-				}
 				if (errored === TRUE) {
 					ctrl.alive = false;
+					return;
+				}
+				if (ok === FALSE) {
 					return;
 				}
 			} while(ctrl.alive = pl_redo(ctrl.subq) === TRUE)
