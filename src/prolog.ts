@@ -363,7 +363,7 @@ export class Prolog {
 				stdoutbuf.reset();
 				stderrbuf.reset();
 				const queued = ctrl.answers.shift();
-				const empty = format === "json" ? !queued : stdout.byteLength === 0;
+				const empty = toplevel === FORMATS.json ? !queued : stdout.byteLength === 0;
 				if (empty) {
 					const truth = toplevel.truth(this, status, stderr, encode);
 					if (truth === null) return;
