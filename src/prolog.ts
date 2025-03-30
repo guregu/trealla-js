@@ -129,6 +129,7 @@ interface Trealla extends ABI {
 	pl_redo(pl: Ptr<prolog_t>): bool_t;
 	pl_done(pl: Ptr<prolog_t>): void;
 	get_status(pl: Ptr<prolog_t>): bool_t;
+	get_error(pl: Ptr<prolog_t>): bool_t;
 	pl_did_yield(subquery: Ptr<subquery_t>): bool_t;
 	pl_yield_at(subquery: Ptr<subquery_t>, msec: int_t): void;
 	pl_consult(pl: Ptr<prolog_t>, str: Ptr<char_t>): bool_t;
@@ -264,6 +265,7 @@ export class Prolog {
 		const pl_redo = this.instance.exports.pl_redo;
 		const pl_done = this.instance.exports.pl_done;
 		const get_status = this.instance.exports.get_status;
+		const get_error = this.instance.exports.get_error;
 		const pl_did_yield = this.instance.exports.pl_did_yield;
 		const pl_yield_at = this.instance.exports.pl_yield_at;
 
@@ -358,6 +360,7 @@ export class Prolog {
 				}
 				// otherwise, pass to toplevel
 				const status = get_status(this.ptr) === TRUE;
+				const errored = toplevel === FORMATS.prolog ? get_error(this.ptr) : FALSE;
 				const stdout = stdoutbuf.data;
 				const stderr = stderrbuf.data;
 				stdoutbuf.reset();
@@ -375,6 +378,10 @@ export class Prolog {
 					yield solution;
 				}
 				if (ok === FALSE) {
+					return;
+				}
+				if (errored === TRUE) {
+					ctrl.alive = false;
 					return;
 				}
 			} while(ctrl.alive = pl_redo(ctrl.subq) === TRUE)

@@ -406,6 +406,11 @@ test("cyclic term", async (t) => {
 	});
 });
 
+test("syntax error", async (t) => {
+	const pl = new Prolog();
+	await expect(pl.query("foo;", { format: "prolog" }), ["Error: syntax error, missing operand to infix, user:1\n"]);
+});
+
 test("dangling clause iterator", async (t) => {
 	// Tests query iterators that find a next result whose clause is erased before it can report its answer
 	t.skip("Known issue: https://github.com/guregu/trealla-js/issues/34#issuecomment-2759955961");
