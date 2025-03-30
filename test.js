@@ -394,8 +394,16 @@ test("memory usage", async(t) => {
 
 test("cyclic term", async (t) => {
 	const pl = new Prolog();
-	const q = await pl.queryOnce("X = p(X, X).");
-	assert.deepEqual(q.answer, {X: new Compound("p", [new Variable("X"), new Variable("X")])});
+	const q1 = await pl.queryOnce("X = p(X, X).");
+	assert.deepEqual(q1.answer, {
+		X: new Compound("p", [new Variable("X"), new Variable("X")]),
+	});
+
+	const q2 = await pl.queryOnce("Y = p(X), X = p(X, Y).");
+	assert.deepEqual(q2.answer, {
+		Y: new Compound("p", [new Variable("X")]),
+		X: new Compound("p", [new Variable("X"), new Compound("p", [new Variable("X")])]),
+	});
 });
 
 test("dangling clause iterator", async (t) => {
