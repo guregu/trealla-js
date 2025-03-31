@@ -166,7 +166,7 @@ export class Prolog {
 	taskcount = 0;
 	scratch = 0;
 	finalizers;
-	yielding: Record<Ptr<subquery_t>, Thunk> = {};		// *subq → maybe promise
+	yielding = new Map<Ptr<subquery_t>, Thunk>();		// *subq → maybe promise
 	procs: Record<string, Predicate<any>> = {};			// pi → predicate
 	tasks = new Map<number, Task>();					// id → task
 	subqs = new Map<Ptr<subquery_t>, Ctrl>(); 			// *subq → ctrl
@@ -188,7 +188,7 @@ export class Prolog {
 					task.alive = false;
 					const pl_done = this.instance.exports.pl_done;
 					pl_done(task.subquery);
-					delete this.yielding[task.subquery];
+					this.yielding.delete(task.subquery);
 				}
 			})
 		}
@@ -329,7 +329,7 @@ export class Prolog {
 				// if the guest yielded, run the yielded promise and redo
 				// upon redo, the guest can call '$host_continue'/1 to grab the promise's return value
 				if (pl_did_yield(ctrl.subq) === TRUE) {
-					const thunk = this.yielding[ctrl.subq];
+					const thunk = this.yielding.get(ctrl.subq);
 					if (!thunk) {
 						// guest yielded without having called '$host_call'/2
 						let now;
@@ -397,7 +397,7 @@ export class Prolog {
 				if (ctrl.alive) {
 					ctrl.alive = false;
 					pl_done(ctrl.subq);
-					delete this.yielding[ctrl.subq];
+					this.yielding.delete(ctrl.subq);
 				}
 			}
 		}
@@ -576,10 +576,10 @@ export class Prolog {
 		}
 
 		if (cont) {
-			this.yielding[subquery] = {
+			this.yielding.set(subquery, {
 				cont: cont,
 				done: false
-			};
+			});
 		}
 
 		let reply: CString;
@@ -600,14 +600,14 @@ export class Prolog {
 	}
 
 	_host_resume(subquery: Ptr<subquery_t>, replyptrptr: Ptr<Ptr<char_t>>, replysizeptr: Ptr<size_t>): HostCallReply {
-		const task = this.yielding[subquery];
+		const task = this.yielding.get(subquery);
 		if (!task) {
 			return WASM_HOST_CALL_ERROR;
 		}
 		// console.log("get thunk:", task, subquery);
 
 		if (task.done)
-			delete this.yielding[subquery];
+			this.yielding.delete(subquery);
 
 		let result;
 		try {
