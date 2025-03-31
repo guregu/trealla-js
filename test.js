@@ -404,6 +404,16 @@ test("cyclic term", async (t) => {
 		Y: new Compound("p", [new Variable("X")]),
 		X: new Compound("p", [new Variable("X"), new Compound("p", [new Variable("X")])]),
 	});
+
+	const q3 = await pl.queryOnce("X = [a|X].");
+	assert.deepEqual(q3.answer, {
+		X: new Compound(".", [new Atom("a"), new Variable("X")]),
+	});
+});
+
+test("syntax error", async (t) => {
+	const pl = new Prolog();
+	await expect(pl.query("foo;", { format: "prolog" }), ["Error: syntax error, missing operand to infix, user:1\n"]);
 });
 
 test("syntax error", async (t) => {
