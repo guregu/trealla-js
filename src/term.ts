@@ -32,7 +32,7 @@ export class Atom {
 }
 
 /** Template string tag for making atoms. */
-export function atom(text: TemplateStringsArray, ...values: any[]) {
+export function atom(text: TemplateStringsArray, ...values: (string|number|bigint)[]) {
 	let functor = "";
 	for (let i = 0; i < text.length; i++){
 		functor += text[i];
