@@ -13,17 +13,17 @@ export type PredicateIndicator = Compound<"/", [Atom, number]>;
 export type Termlike = | Term | Literal | Uint8Array | { toProlog: () => string };
 
 /** Prolog atom term. */
-export class Atom<Id extends string = string> {
+export class Atom<Text extends string = string> {
 	/** Value of the atom. */
-	functor: Id;
+	functor: Text;
 	args: [] = [];
-	constructor(functor: Id) {
+	constructor(functor: Text) {
 		this.functor = functor;
 	}
 	/** Value of the atom. */
 	// TODO: change `functor` to just `value`, here is for backwards compatibility
 	get value() { return this.functor; }
-	set value(v: Id) { this.functor = v; }
+	set value(v: Text) { this.functor = v; }
 	get pi() { return piTerm(this.functor, 0) }
 	toProlog() {
 		return escapeAtom(this.functor);
@@ -189,7 +189,7 @@ function validVar(name: unknown) {
 	return false;
 }
 
-export function piTerm<const S extends string, const N extends number>(name: S, arity: N): Compound<'/', [Atom<S>, N]> {
+export function piTerm<const P extends string, const N extends number>(name: P, arity: N): Compound<'/', [Atom<P>, N]> {
 	return new Compound("/", [new Atom(name), arity]);
 }
 
