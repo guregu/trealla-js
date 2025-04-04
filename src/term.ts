@@ -13,17 +13,17 @@ export type PredicateIndicator = Compound<"/", [Atom, number]>;
 export type Termlike = | Term | Literal | Uint8Array | { toProlog: () => string };
 
 /** Prolog atom term. */
-export class Atom {
+export class Atom<Id extends string = string> {
 	/** Value of the atom. */
-	functor: string;
+	functor: Id;
 	args: [] = [];
-	constructor(functor: string) {
+	constructor(functor: Id) {
 		this.functor = functor;
 	}
 	/** Value of the atom. */
 	// TODO: change `functor` to just `value`, here is for backwards compatibility
 	get value() { return this.functor; }
-	set value(v: string) { this.functor = v; }
+	set value(v: Id) { this.functor = v; }
 	get pi() { return piTerm(this.functor, 0) }
 	toProlog() {
 		return escapeAtom(this.functor);
@@ -32,7 +32,7 @@ export class Atom {
 }
 
 /** Template string tag for making atoms. */
-export function atom(text: TemplateStringsArray, ...values: any[]) {
+export function atom(text: TemplateStringsArray, ...values: (string|number|bigint)[]) {
 	let functor = "";
 	for (let i = 0; i < text.length; i++){
 		functor += text[i];
@@ -71,7 +71,9 @@ export class Compound<Functor extends string, Arguments extends Args> {
 		if (typeof args?.length === "undefined")
 			throw new Error("bad compound, not a list: " + functor);
 	}
-	get pi() { return new Compound("/", [new Atom(this.functor), this.args.length]) }
+	get pi() {
+		return piTerm(this.functor, this.args.length)
+	}
 	toProlog() {
 		if (this.args.length === 0)
 			return escapeAtom(this.functor);
@@ -187,7 +189,7 @@ function validVar(name: unknown) {
 	return false;
 }
 
-export function piTerm(name: string, arity: number) {
+export function piTerm<const S extends string, const N extends number>(name: S, arity: N): Compound<'/', [Atom<S>, N]> {
 	return new Compound("/", [new Atom(name), arity]);
 }
 
