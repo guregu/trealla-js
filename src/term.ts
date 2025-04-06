@@ -200,7 +200,7 @@ export function toProlog(obj: unknown): string {
 		const str = obj.toString();
 		const eidx = str.indexOf("e");
 		if (eidx === -1 || str.includes(".")) {
-			return obj.toString();
+			return str;
 		}
 		// Prolog won't accept numbers like "1e100", wants "1.0e100" instead
 		// See: https://github.com/guregu/trealla-js/issues/44
