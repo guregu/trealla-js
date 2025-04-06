@@ -197,7 +197,14 @@ export function piTerm<const P extends string, const N extends number>(name: P, 
 export function toProlog(obj: unknown): string {
 	switch (typeof obj) {
 	case "number":
-		return obj.toString();
+		const str = obj.toString();
+		const eidx = str.indexOf("e");
+		if (eidx === -1 || str.includes(".")) {
+			return obj.toString();
+		}
+		// Prolog won't accept numbers like "1e100", wants "1.0e100" instead
+		// See: https://github.com/guregu/trealla-js/issues/44
+		return `${str.slice(0, eidx)}.0${str.slice(eidx)}`;
 	case "bigint":
 		return obj.toString();
 	case "string":

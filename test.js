@@ -226,6 +226,11 @@ test("terms", async (t) => {
 			check: isNumber,
 		},
 		{
+			term: 1e100,
+			text: "1.0e+100",
+			check: isNumber,
+		},
+		{
 			term: new Rational(1, 3),
 			text: "1 rdiv 3",
 			check: isRational,
