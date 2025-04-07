@@ -289,57 +289,76 @@ export function toJSON(term: Term, indent: string) {
 }
 
 export function reviver(opts: JSONEncodingOptions = {}) {
-	const { atoms, strings, booleans, nulls, undefineds } = opts;
+	const { atoms, strings, integers, booleans, nulls, undefineds } = opts;
 	return function(k: string, v: unknown) {
 		if (v === null)
 			return new Compound("{}", [new Atom("null")]);
 
-		if (v && typeof v === "object" && "functor" in v) {
-			const functor = (Array.isArray(v.functor) && v.functor.length === 0) ? "" : v.functor as string;
-			// atoms
-			if (!("args" in v) || !(v.args as Term[]).length) {
-				switch (atoms) {
-				case "string":
-					return functor;
-				default:
-					return new Atom(functor);
-				}
-			}
-			if ((booleans || nulls || undefineds) && typeof v === "object" && ("args" in v) &&
-				Array.isArray(v.args) && v.args.length === 1) {
-				const atom = typeof v.args[0] === "string" ? v.args[0] : v.args[0].functor;
-				// booleans
-				if (v.functor === booleans) {
-					switch (atom) {
-					case "true":
-						return true;
-					case "false":
-						return false;
+		if (v && typeof v === "object") {
+			if ("functor" in v) {
+				const functor = (Array.isArray(v.functor) && v.functor.length === 0) ? "" : v.functor as string;
+				// atoms
+				if (!("args" in v) || !(v.args as Term[]).length) {
+					switch (atoms) {
+						case "string":
+							return functor;
+						default:
+							return new Atom(functor);
 					}
 				}
-				// nulls
-				if (v.functor === nulls && atom === "null") {
-					return null;
+				if ((booleans || nulls || undefineds) && typeof v === "object" && ("args" in v) &&
+					Array.isArray(v.args) && v.args.length === 1) {
+					const atom = typeof v.args[0] === "string" ? v.args[0] : v.args[0].functor;
+					// booleans
+					if (v.functor === booleans) {
+						switch (atom) {
+							case "true":
+								return true;
+							case "false":
+								return false;
+						}
+					}
+					// nulls
+					if (v.functor === nulls && atom === "null") {
+						return null;
+					}
+					// undefineds
+					if (v.functor === undefineds && atom === "undefined") {
+						return undefined;
+					}
 				}
-				// undefineds
-				if (v.functor === undefineds && atom === "undefined") {
-					return undefined;
+				// compounds
+				return new Compound(functor, (v as Compound<Functor, Args>).args);
+			}
+			// variables
+			if (("var" in v) && (typeof v.var === "string")) {
+				return new Variable(v.var, (v as Variable).attr);
+			}
+			// rationals
+			if (("numerator" in v) && ("denominator" in v)) {
+				if (!isNumber(v.numerator) || !isNumber(v.denominator)) {
+					throw new Error(`invalid rational: ${JSON.stringify(v)}`);
 				}
+				return new Rational(v.numerator, v.denominator);
 			}
-			// compounds
-			return new Compound(functor, (v as Compound<Functor, Args>).args);
-		}
-		if (typeof v === "object" && ("var" in v) && typeof v.var === "string") {
-			return new Variable(v.var, (v as Variable).attr);
-		}
-		if (typeof v === "object" && ("numerator" in v) && ("denominator" in v)) {
-			if (!isNumber(v.numerator) || !isNumber(v.denominator)) {
-				throw new Error(`invalid rational: ${JSON.stringify(v)}`);
+			// integers
+			if ("int" in v) {
+				if (typeof v.int !== "number" && typeof v.int !== "string")
+					throw Error(`invalid int: ${JSON.stringify(v)}`);
+				if (!integers || integers === "fit") {
+					if (typeof v.int === "number") return v.int;
+					if (typeof v.int === "string") return BigInt(v.int);
+				}
+				if (integers === "bigint") {
+					return BigInt(v.int);
+				}
+				return Number(v.int);
 			}
-			return new Rational(v.numerator, v.denominator);
-		}
-		if (typeof v === "object" && ("number" in v) && typeof v.number === "string") {
-			return BigInt(v.number);
+			// bigints
+			if (("number" in v) && (typeof v.number === "string")) {
+				if (integers === "number") return Number(v.number);
+				return BigInt(v.number);
+			}
 		}
 		// strings
 		if (typeof v === "string" && k !== "result" && k !== "stdin" && k !== "stdout") {

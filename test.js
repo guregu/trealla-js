@@ -416,6 +416,22 @@ test("cyclic term", async (t) => {
 	});
 });
 
+test("integer mode", async (t) => {
+	const cases = {
+		"bigint": { X: 123n, Y: 1, Z: 9007199254740992n	},
+		"fit": { X: 123, Y: 1, Z: 9007199254740992n },
+		"number": { X: 123, Y: 1, Z: 9007199254740992 /* Z might be inaccurate */ },
+	}
+	for (const [mode, want] of Object.entries(cases)) {
+		await t.test(mode, async (t) => {
+			const pl = new Prolog();
+			const q = await pl.queryOnce("X = 123, Y = 1.0, Z = 9007199254740992, integer(X), float(Y), integer(Z).", { integers: mode });
+			assert.deepEqual(q.status, "success");
+			assert.deepEqual(q.answer, want);
+		});
+	}
+});
+
 test("syntax error", async (t) => {
 	const pl = new Prolog();
 	await expect(pl.query("foo;", { format: "prolog" }), ["Error: syntax error, missing operand to infix, user:1\n"]);

@@ -314,6 +314,8 @@ declare module 'trealla' {
     atoms?: "string" | "object";
     /** Encoding for Prolog strings. Default is "string". */
     strings?: "string" | "list";
+   	/** Encoding for Prolog integers. Default is "fit", which uses bigints if outside of the safe integer range. */
+   	integers?: "fit" | "bigint" | "number";
 
     /** Functor for compounds of arity 1 to be converted to booleans.
       For example, `"{}"` to turn the Prolog term `{true}` into true ala Tau,

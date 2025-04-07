@@ -1,6 +1,6 @@
 {
 	"name": "trealla",
-	"version": "0.24.16",
+	"version": "0.25.0",
 	"description": "Trealla Prolog bindings for JS",
 	"main": "dist/trealla.js",
 	"type": "module",
