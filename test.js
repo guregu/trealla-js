@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
 
-import { Atom, Prolog, Variable, Compound, Rational, toProlog, prolog, atom,
+import { Atom, Prolog, Variable, Compound, Rational, Float, toProlog, prolog, atom,
 	isAtom, isCompound, isNumber, isRational, isList, isVariable, isString, isTerm, load } from "./dist/trealla.js";
 
 await test("load", async (t) => {
@@ -430,6 +430,16 @@ test("integer mode", async (t) => {
 			assert.deepEqual(q.answer, want);
 		});
 	}
+});
+
+test("Float type", async (t) => {
+	const f1 = new Float(123);
+	assert.deepEqual(JSON.stringify(f1), "123");
+	assert.deepEqual(f1.toProlog(), "123.0");
+
+	const pl = new Prolog();
+	const q1 = await pl.queryOnce("true.", { bind: { X: new Float(1), Y: 2n }, integers: "bigint" });
+	assert.deepEqual(q1.answer, { X: 1.0, Y: 2n });
 });
 
 test("syntax error", async (t) => {

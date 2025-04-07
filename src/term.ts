@@ -10,7 +10,7 @@ export type Goal = Atom | Compound<Functor, Args>;
 export type PredicateIndicator = Compound<"/", [Atom, number]>;
 
 /** Terms or objects that encode into terms. Uint8Array becomes a Prolog string. */
-export type Termlike = | Term | Literal | Uint8Array | { toProlog: () => string };
+export type Termlike = | Term | Float | Literal | Uint8Array | { toProlog: () => string };
 
 /** Prolog atom term. */
 export class Atom<Text extends string = string> {
@@ -174,6 +174,27 @@ export class Literal {
 		this.value = value;
 	}
 	toProlog() {
+		return this.value;
+	}
+}
+
+const FLOAT_FORMAT = new Intl.NumberFormat("en-US", { useGrouping: false, minimumFractionDigits: 1, notation: "standard" });
+
+/** Number that will always encode to a Prolog float. */
+export class Float {
+	value: number;
+	constructor(value: number) {
+		this.value = value;
+	}
+	[Symbol.toPrimitive]() {
+		return this.value;
+	}
+	toProlog() {
+		if (!Number.isFinite(this.value))
+			throw new Error(`can't encode ${this.value} to Prolog term`);
+		return FLOAT_FORMAT.format(this.value);
+	}
+	toJSON() {
 		return this.value;
 	}
 }
