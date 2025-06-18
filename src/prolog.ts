@@ -18,11 +18,11 @@ let initPromise: Promise<void>;
 		Must be called before constructing `Prolog` instances.
 */
 export function load(module?: WebAssembly.Module): Promise<void> {
-	if (!module) {
-		initPromise = async function () { tpl = await WebAssembly.compile(tpl_wasm); }();
-	} else {
+	if (module) {
 		tpl = module;
 		initPromise = async function () { }();
+	} else {
+		initPromise = async function () { tpl = await WebAssembly.compile(tpl_wasm); }();
 	}
 	return initPromise;
 }
