@@ -1,18 +1,31 @@
 {
-	"name": "trealla",
-	"version": "0.27.2",
+	"name": "trealla-multibundle",
+	"version": "0.27.7",
 	"description": "Trealla Prolog bindings for JS",
 	"main": "dist/trealla.js",
 	"type": "module",
 	"types": "dist/index.d.ts",
 	"files": [
 		"ATTRIBUTION",
-		"dist/index.d.ts"
+		"dist/index.d.ts",
+		"dist-unbundled/**.d.ts",
+		"dist-unbundled/**.js",
+		"dist-unbundled/**.wasm"
 	],
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
 			"default": "./dist/trealla.js"
+		},
+		"./unbundled": {
+			"types": "./dist-unbundled/index.d.ts",
+			"default": "./dist-unbundled/trealla.js"
+		}
+	},
+	"typesVersions": {
+		"*": {
+			".": "./dist/index.d.ts",
+			"./unbundled": "./dist-unbundled/index.d.ts"
 		}
 	},
 	"repository": {

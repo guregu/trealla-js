@@ -12,12 +12,25 @@ import { ByteBuffer } from './buffer';
 import tpl_wasm from '../libtpl.wasm';
 let tpl: WebAssembly.Module;
 
-let initPromise = async function() {
-	tpl = await WebAssembly.compile(tpl_wasm);
-}();
+let initPromise: Promise<void>;
 
-/** Load the Trealla and wasmer-js runtimes. */
-export function load(): Promise<void> {
+ /** Load the Trealla runtime. Must be called before constructing `Prolog` instances. */
+ export async function load(): Promise<void> {
+ 	if (initPromise) return initPromise;
+
+	// The value of `tpl_wasm` changes based on the distribution bundle:
+	// - Default: `tpl_wasm` is a binary Buffer, inlined with the source code during build. Buffer needs to be compiled to `WebAssembly.Module`
+	// - Unbundled: `tpl_wasm` is being imported from a true source `.wasm` file placed next to the source code. Type differs based on the runtime:
+	//   - Cloudflare Workers: automatically imports .wasm files as `WebAssembly.Module`, no need of conversion
+	//   - Other N/A
+	initPromise = async function () { 
+		if (tpl_wasm instanceof WebAssembly.Module) {
+			tpl = tpl_wasm;
+		} else {
+			tpl = await WebAssembly.compile(tpl_wasm);
+		}
+	}();
+
 	return initPromise;
 }
 
@@ -198,7 +211,9 @@ export class Prolog {
 
 	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
 	async init() {
-		if (!tpl) await initPromise;
+		if (!tpl) {
+			await load();
+		}
 
 		// const imports = this.wasi.getImports(tpl) as WebAssembly.Imports;
 		const imports = {
