@@ -12,12 +12,18 @@ import { ByteBuffer } from './buffer';
 import tpl_wasm from '../libtpl.wasm';
 let tpl: WebAssembly.Module;
 
-let initPromise = async function() {
-	tpl = await WebAssembly.compile(tpl_wasm);
-}();
+let initPromise: Promise<void>;
 
-/** Load the Trealla and wasmer-js runtimes. */
-export function load(): Promise<void> {
+/** Load the Trealla runtime. Uses the given module if provided, otherwise loads the embedded version.
+		Must be called before constructing `Prolog` instances.
+*/
+export function load(module?: WebAssembly.Module): Promise<void> {
+	if (!module) {
+		initPromise = async function() { tpl = await WebAssembly.compile(tpl_wasm); }()
+	} else {
+		tpl = module;
+		initPromise = async function(){}()
+	}
 	return initPromise;
 }
 
@@ -198,7 +204,9 @@ export class Prolog {
 
 	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
 	async init() {
-		if (!tpl) await initPromise;
+		if (!tpl) {
+			await (initPromise ?? load());
+		}
 
 		// const imports = this.wasi.getImports(tpl) as WebAssembly.Imports;
 		const imports = {
