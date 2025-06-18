@@ -18,6 +18,8 @@ let initPromise: Promise<void>;
 		Must be called before constructing `Prolog` instances.
 */
 export function load(module?: WebAssembly.Module): Promise<void> {
+	if (initPromise) return initPromise;
+
 	if (module) {
 		tpl = module;
 		initPromise = async function () { }();
@@ -153,7 +155,7 @@ export interface Task {
 	id: number;
 	promise: Promise<Tick | undefined> | null;
 	cancel: (() => void) | null;
-	query: AsyncGenerator<Tick, void, undefined>
+	query: AsyncGenerator<Tick, void, undefined>;
 }
 
 export type Tick = {
