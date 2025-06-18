@@ -19,10 +19,10 @@ let initPromise: Promise<void>;
 */
 export function load(module?: WebAssembly.Module): Promise<void> {
 	if (!module) {
-		initPromise = async function() { tpl = await WebAssembly.compile(tpl_wasm); }()
+		initPromise = async function () { tpl = await WebAssembly.compile(tpl_wasm); }();
 	} else {
 		tpl = module;
-		initPromise = async function(){}()
+		initPromise = async function () { }();
 	}
 	return initPromise;
 }
