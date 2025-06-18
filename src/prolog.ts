@@ -207,7 +207,7 @@ export class Prolog {
 	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
 	async init() {
 		if (!tpl) {
-			await (initPromise ?? load());
+			await load();
 		}
 
 		// const imports = this.wasi.getImports(tpl) as WebAssembly.Imports;
