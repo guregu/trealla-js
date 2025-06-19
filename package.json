@@ -1,6 +1,6 @@
 {
 	"name": "trealla",
-	"version": "0.28.1",
+	"version": "0.28.2",
 	"description": "Trealla Prolog bindings for JS",
 	"main": "dist/trealla.js",
 	"type": "module",
@@ -37,7 +37,7 @@
 		"clean": "rm -f libtpl.wasm trealla.js trealla.js.map index.d.ts index.d.ts.map dist/* dist-unbundled/*",
 		"update": "git submodule update --init --recursive && cd trealla && git fetch && git pull origin main",
 		"compile": "cd trealla && make clean && make -j8 libtpl-js && mv libtpl-js.wasm ../libtpl.wasm",
-		"build": "node make.cjs && npx tsc && npx tsc -p tsconfig.unbundled.json",
+		"build": "node make.cjs && npx tsc && npx tsc -p tsconfig.unbundled.json && node make-fixup.cjs",
 		"watch": "nodemon --exec 'npm run build && cp dist/trealla.js example/browser/' --ignore 'example' --watch 'src' --watch 'libtpl.wasm' --ext ts,wasm",
 		"test": "npm run build && node test.js"
 	},
