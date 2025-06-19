@@ -34,7 +34,7 @@
 	},
 	"scripts": {
 		"all": "npm run clean && npm run compile && npm run build",
-		"clean": "rm -f libtpl.wasm trealla.js trealla.js.map index.d.ts index.d.ts.map dist/*",
+		"clean": "rm -f libtpl.wasm trealla.js trealla.js.map index.d.ts index.d.ts.map dist/* dist-unbundled/*",
 		"update": "git submodule update --init --recursive && cd trealla && git fetch && git pull origin main",
 		"compile": "cd trealla && make clean && make -j8 libtpl-js && mv libtpl-js.wasm ../libtpl.wasm",
 		"build": "node make.cjs && npx tsc && npx tsc -p tsconfig.unbundled.json",
