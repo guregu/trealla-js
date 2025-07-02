@@ -4,7 +4,7 @@
 
 Trealla is a quick and lean ISO Prolog interpreter.
 
-Trealla is built targeting [WASI](https://wasi.dev/) and should be useful for both browsers and serverless runtimes.
+Trealla is built targeting [WASI](https://wasi.dev/) and should be useful for browsers, serverless runtimes, and [edge](#cloudflare-workers-alternative-wasm-bundling).
 
 **Demo**: https://php.energy/trealla.html
 
@@ -38,6 +38,21 @@ npm install trealla
 ```js
 import { load, Prolog } from 'trealla';
 ```
+
+### Cloudflare Workers (alternative WASM bundling)
+
+By default, `trealla-js` bundles the Trealla WASM binary as a buffer in the source.
+
+This is unsupported by some runtimes that disallow WebAssembly compilation (i.e. **Cloudflare Workers**).
+
+For these runtimes, trealla-js offers `trealla/unbundled` module with alternative WASM bundling.
+The WASM binary is bundled as a standalone file and imported as a module at the run time.
+
+```js
+import { load, Prolog } from 'trealla/unbundled';
+```
+
+The rest of the API stays the same.
 
 ## Example
 
