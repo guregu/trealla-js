@@ -158,6 +158,25 @@ test("concurrency", async (t) => {
 	await q2.return();
 });
 
+// really slow
+test("concurrency slam", async (t) => {
+	const pl = new Prolog();
+	const queries = [];
+	const N = 100;
+	for (let i = 0; i < N; i++) {
+		const q = pl.query(`between(0,9,X), Q = ${i}, findall(_, between(0, 100000, _), _).`);
+		queries.push(q);
+	}
+	for (let j = 0; j < 10; j++) {
+		const waits = queries.map(q => q.next());
+		const got = await Promise.all(waits);
+		for (let i = 0; i < got.length; i++) {
+			// console.log(i, got[i]);
+			assert.deepEqual(got[i].value.answer, { X: j, Q: i });
+		}
+	}
+});
+
 test("bigint", async (t) => {
 	const pl = new Prolog();
 	const answer = await pl.queryOnce("X=9999999999999999, Y = -9999999999999999, Z = 123");

@@ -34,7 +34,7 @@ export class CString {
 		const buf = new TextEncoder().encode(text);
 		this.size = buf.byteLength + 1;
 
-		this.ptr = realloc<char_t>(NULL, 0, ALIGN, this.size);
+		this.ptr = realloc<char_t>(NULL, 0, ALIGN, this.size) >>> 0;
 		if (this.ptr === NULL) {
 			throw new Error("could not allocate cstring: " + text);
 		}
@@ -61,6 +61,7 @@ export class CString {
 }
 
 export function readString(instance: WASI, ptr: Ptr<char_t>, size?: number) {
+	ptr >>>= 0;
 	const mem = new Uint8Array(instance.exports.memory.buffer);
 	const idx = size ? ptr+size : mem.indexOf(0, ptr);
 	if (idx === -1) {
@@ -70,14 +71,16 @@ export function readString(instance: WASI, ptr: Ptr<char_t>, size?: number) {
 }
 
 export function indirect<T extends Ptr<U>, U extends number>(instance: WASI, addr: T): Deref<T> {
-	// if (addr === NULL) return NULL;
-	return (new Uint32Array(instance.exports.memory.buffer))[addr / 4] as Deref<T>;
+	const ptr = addr >>> 0;
+	// if (ptr === NULL) return NULL;
+	return (new Uint32Array(instance.exports.memory.buffer))[ptr / 4] as Deref<T>;
 }
 
 export type Deref<T> = T extends Ptr<infer U> ? U extends number ? U : never : never;
 
 export function writeUint32<T>(instance: WASI, addr: Ptr<T>, int: number) {
-	new Uint32Array(instance.exports.memory.buffer)[addr / 4] = int;
+	const ptr = addr >>> 0;
+	new Uint32Array(instance.exports.memory.buffer)[ptr / 4] = int;
 }
 
 export function wasiError(errno: number, context = "WASI error") {

@@ -23,7 +23,7 @@ let initPromise: Promise<void>;
 	// - Unbundled: `tpl_wasm` is being imported from a true source `.wasm` file placed next to the source code. Type differs based on the runtime:
 	//   - Cloudflare Workers: automatically imports .wasm files as `WebAssembly.Module`, no need of conversion
 	//   - Other N/A
-	initPromise = async function () { 
+	initPromise = async function () {
 		if (tpl_wasm instanceof WebAssembly.Module) {
 			tpl = tpl_wasm;
 		} else {
@@ -176,6 +176,7 @@ export class Prolog {
 	os = newOS();
 	fs;
 	instance!: Instance;
+	initting?: Promise<void>;
 	ptr: Ptr<prolog_t> = 0; // pointer to *prolog instance
 	n = 0;
 	taskcount = 0;
@@ -211,6 +212,14 @@ export class Prolog {
 
 	/**	Instantiate this interpreter. Automatically called by other methods if necessary. */
 	async init() {
+		if (!this.initting) {
+			this.initting = this.init2();
+		}
+		await this.initting;
+		return;
+	}
+
+	async init2() {
 		if (!tpl) {
 			await load();
 		}
@@ -287,6 +296,7 @@ export class Prolog {
 		const pl_yield_at = this.instance.exports.pl_yield_at;
 
 		let subqptr: Ptr<Ptr<subquery_t>> = realloc(NULL, 0, ALIGN, PTRSIZE); // pl_sub_query**
+		writeUint32(this.instance, subqptr, 0);
 		let readSubqPtr = () => {
 			const subq = subqptr ? indirect(this.instance, subqptr) : NULL;
 			if (subq !== NULL) {
@@ -390,7 +400,7 @@ export class Prolog {
 					if (truth === null) return;
 					yield truth;
 				} else {
-					// console.log(status, stdout, stderr, encode, queued);
+					// console.log("GOT", "queued=", !!queued, subq, "status=", status, "stdout=", new TextDecoder().decode(stdout), "stderr=", new TextDecoder().decode(stderr), encode, queued);
 					const solution = toplevel.parse(this, status, stdout, stderr, encode, queued);
 					if (solution === null) return;
 					yield solution;
@@ -552,14 +562,15 @@ export class Prolog {
 	}
 
 	ctrl(subquery: Ptr<subquery_t>) {
-		const ctrl = this.subqs.get(subquery);
+		const ptr = subquery >>> 0;
+		const ctrl = this.subqs.get(ptr);
 		if (ctrl)
 			return ctrl;
 		for (const [_, ctrl] of this.spawning) {
-			if (ctrl.subquery === subquery)
+			if (ctrl.subquery === ptr)
 				return ctrl;
 		}
-		throw new Error("trealla: internal error, couldn't find ctrl for subquery");
+		throw new Error("trealla: internal error, couldn't find ctrl for subquery: " + ptr);
 	}
 
 	_host_call(subquery: Ptr<subquery_t>, ptr: Ptr<char_t>, msgsize: size_t, replyptrptr: Ptr<Ptr<char_t>>, replysizeptr: size_t): HostCallReply {
